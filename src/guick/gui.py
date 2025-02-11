@@ -21,6 +21,19 @@ from wx.lib.newevent import NewEvent
 import contextlib
 
 
+def get_best_monospace_font():
+    font_enum = wx.FontEnumerator()
+    font_enum.EnumerateFacenames()
+    available_fonts = font_enum.GetFacenames()
+
+    # Preferred monospace fonts (order matters)
+    monospace_fonts = ["Consolas", "Courier New", "Lucida Console", "MS Gothic", "NSimSun"]
+
+    # Pick the first available monospace font
+    chosen_font = next((f for f in monospace_fonts if f in available_fonts), "Courier New")
+    return chosen_font
+
+
 class RedirectText:
     def __init__(self, my_text_ctrl):
         self.out = my_text_ctrl
@@ -192,6 +205,10 @@ class Guick(wx.Frame):
             size=(300, 100),
             style=style
         )
+        # Set monospace font for log output
+        chosen_font = get_best_monospace_font()
+        font = wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, faceName=chosen_font)
+        self.log.SetFont(font)
 
         # Load the history file if it exists
         config = tomlkit.document()
