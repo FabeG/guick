@@ -1,6 +1,7 @@
+import contextlib
 import functools
-
 import inspect
+import io
 import os
 import re
 import sys
@@ -18,8 +19,47 @@ import wx.lib.agw.labelbook as LB
 import wx.lib.buttons as buttons
 import wx.lib.scrolledpanel as scrolled
 from wx.lib.newevent import NewEvent
-import contextlib
-import io
+
+# Regex pattern to match ANSI escape sequences
+ANSI_ESCAPE_PATTERN = re.compile(r'\x1b\[(\d+)m')
+
+# Mapping ANSI color codes to HTML colors
+ANSI_COLORS = {
+    30: wx.Colour(0, 0, 0),       # Black
+    31: wx.Colour(255, 0, 0),     # Red
+    32: wx.Colour(13, 161, 14),     # Green
+    33: wx.Colour(193, 156, 0),   # Yellow
+    34: wx.Colour(0, 55, 218),     # Blue
+    35: wx.Colour(136, 23, 152),   # Magenta
+    36: wx.Colour(58, 150, 221),   # Cyan
+    37: wx.Colour(255, 255, 255),  # White
+}
+ANSI_BACKGROUND_COLOR = {
+    41: wx.Colour(255, 0, 0),     # Red
+}
+
+
+class ANSITextCtrl(wx.TextCtrl):
+    def __init__(self, parent, *args, **kwargs):
+        super().__init__(parent, style=wx.TE_MULTILINE | wx.TE_RICH2)
+
+    def append_ansi_text(self, text):
+        """Parses ANSI escape sequences and applies color formatting."""
+        parts = ANSI_ESCAPE_PATTERN.split(text)
+        # Default white text / black background
+        current_attr = wx.TextAttr(wx.Colour(255, 255, 255))
+        current_attr.SetBackgroundColour(wx.Colour(0, 0, 0))
+        for part in parts:
+            if part.isdigit():  # ANSI color code
+                code = int(part)
+                if code in ANSI_COLORS:
+                    current_attr.SetTextColour(ANSI_COLORS[code])
+                elif code in ANSI_BACKGROUND_COLOR:
+                    current_attr.SetBackgroundColour(ANSI_BACKGROUND_COLOR[code])
+                    current_attr.SetTextColour(wx.Colour(255, 255, 255))
+            else:  # Normal text
+                self.SetDefaultStyle(current_attr)
+                self.AppendText(part)
 
 
 class AboutDialog(wx.Dialog):
@@ -74,7 +114,7 @@ class RedirectText:
         self.out = my_text_ctrl
 
     def write(self, string):
-        wx.CallAfter(self.out.AppendText, string)
+        wx.CallAfter(self.out.append_ansi_text, string)
 
     def flush(self):
         pass
@@ -265,12 +305,13 @@ class Guick(wx.Frame):
         )
         # Create the log
         style = wx.TE_MULTILINE | wx.TE_READONLY | wx.HSCROLL
-        self.log = wx.TextCtrl(
+        self.log = ANSITextCtrl(
             self.panel,
             wx.ID_ANY,
             size=(300, 100),
             style=style
         )
+        self.log.SetBackgroundColour(wx.Colour(0, 0, 0))
         # Set monospace font for log output
         chosen_font = get_best_monospace_font()
         font = wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, faceName=chosen_font)
