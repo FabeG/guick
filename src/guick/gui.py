@@ -19,6 +19,41 @@ import wx.lib.buttons as buttons
 import wx.lib.scrolledpanel as scrolled
 from wx.lib.newevent import NewEvent
 import contextlib
+import io
+
+
+class AboutDialog(wx.Dialog):
+    def __init__(self, parent, head, description):
+        super().__init__(parent, title="About")
+
+        # Main sizer
+        main_sizer = wx.BoxSizer(wx.VERTICAL)
+
+        # Application title
+        title = wx.StaticText(self, label=f"  {head}  ")
+        title_font = title.GetFont()
+        title_font.MakeBold().MakeLarger()
+        title.SetFont(title_font)
+        main_sizer.Add(title, flag=wx.ALIGN_CENTER | wx.TOP, border=20)
+
+        # Description
+        description_st = wx.StaticText(self, label=description)
+        font = get_best_monospace_font()
+        description_st.SetFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, faceName=font))
+        main_sizer.Add(description_st, flag=wx.ALIGN_CENTER | wx.ALL, border=10)
+
+        # OK button
+        ok_button = wx.Button(self, label="OK")
+        ok_button.Bind(wx.EVT_BUTTON, self.on_close)
+        main_sizer.Add(ok_button, flag=wx.ALIGN_CENTER | wx.ALL, border=10)
+
+        # Set sizer and auto-fit dialog size
+        self.SetSizer(main_sizer)
+        # Resize dialog to fit content
+        self.Fit()
+
+    def on_close(self, event):
+        self.Destroy()
 
 
 def get_best_monospace_font():
@@ -145,19 +180,37 @@ class Guick(wx.Frame):
         self.text_error = {}
 
         # If url defined in epilog, add a help menu
-        URL_EXTRACT_PATTERN = "(https?:\\/\\/(?:www\\.)?[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b(?:[-a-zA-Z0-9()@:%_\\+.~#?&\\/=]*))"
-        url_matches = re.findall(URL_EXTRACT_PATTERN, ctx.command.epilog)
-        if url_matches:
-            menubar = wx.MenuBar()
-            file_menu = wx.Menu()
+        url_matches = []
+        if ctx.command.epilog:
+            URL_EXTRACT_PATTERN = "(https?:\\/\\/(?:www\\.)?[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b(?:[-a-zA-Z0-9()@:%_\\+.~#?&\\/=]*))"
+            url_matches = re.findall(URL_EXTRACT_PATTERN, ctx.command.epilog)
+        # If version option defined, add a version menu
+        version_option = False
+        if any(
+            param.name == "version" and param.is_eager
+            for param in ctx.command.params
+        ):
+            version_option = True
+        try:
+            if url_matches or version_option:
+                menubar = wx.MenuBar()
+                file_menu = wx.Menu()
 
-            qmi = wx.MenuItem(file_menu, wx.ID_EXIT, '&Help')
-            file_menu.Append(qmi)
+                if url_matches:
+                    help_item = wx.MenuItem(file_menu, wx.ID_EXIT, '&Help')
+                    file_menu.Append(help_item)
+                    self.Bind(wx.EVT_MENU, lambda x, y=url_matches[0]: self.on_help(x, y), help_item)
 
-            self.Bind(wx.EVT_MENU, lambda x, y=url_matches[0]: self.on_help(x, y), qmi)
+                if version_option:
+                    version_item = wx.MenuItem(file_menu, wx.ID_EXIT, '&Version')
+                    file_menu.Append(version_item)
+                    self.Bind(wx.EVT_MENU, self.OnVersion, version_item)
 
-            menubar.Append(file_menu, '&Help')
-            self.SetMenuBar(menubar)
+                menubar.Append(file_menu, '&Help')
+
+                self.SetMenuBar(menubar)
+        except Exception as e:
+            print(e)
 
         # Set history file name
         history_folder = Path(platformdirs.user_config_dir("history", "guick")) / ctx.info_name
@@ -188,7 +241,20 @@ class Guick(wx.Frame):
         webbrowser.open(url)
 
     def OnVersion(self, event):
-        pass
+        for param in self.ctx.command.params:
+            if param.name == "version":
+
+                with io.StringIO() as buf, contextlib.redirect_stdout(buf):
+                    try:
+                        param.callback(self.ctx, param, True)
+                    except Exception:
+                        pass
+                    output = buf.getvalue()
+        title = output.split("\n")[0]
+        description = "\n".join(output.split("\n")[1:])
+        dlg = AboutDialog(self, title, description)
+        dlg.ShowModal()  # Show dialog modally
+
 
     def build_command_gui(self, parent, command):
         # self.panel = scrolled.ScrolledPanel(
