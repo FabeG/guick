@@ -20,6 +20,17 @@ import wx.lib.buttons as buttons
 import wx.lib.scrolledpanel as scrolled
 from wx.lib.newevent import NewEvent
 
+
+class MyFileDropTarget(wx.FileDropTarget):
+    def __init__(self, obj):
+        wx.FileDropTarget.__init__(self)
+        self.obj = obj
+
+    def OnDropFiles(self, x, y, filenames):
+        self.obj.SetValue("")
+        self.obj.WriteText(filenames[0])
+        return True
+
 # Regex pattern to match ANSI escape sequences
 ANSI_ESCAPE_PATTERN = re.compile(r'\x1b\[(\d+)m')
 
@@ -193,6 +204,8 @@ class PathEntry(NormalEntry):
         self.button = None
         self.callback = callback
         super().__init__(parent, sizer, param, row, default_text, longest_param_name)
+        self.file_drop_target = MyFileDropTarget(self.entry)
+        self.entry.SetDropTarget(self.file_drop_target)
 
     def build_button(self):
         self.button = wx.Button(self.parent, -1, "Browse")
