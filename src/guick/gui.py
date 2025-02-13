@@ -51,8 +51,8 @@ ANSI_BACKGROUND_COLOR = {
 
 
 class ANSITextCtrl(wx.TextCtrl):
-    def __init__(self, parent, *args, **kwargs):
-        super().__init__(parent, style=wx.TE_MULTILINE | wx.TE_RICH2)
+    def __init__(self, parent, style, size, *args, **kwargs):
+        super().__init__(parent, style=wx.TE_MULTILINE | wx.TE_RICH2, size=size)
 
     def append_ansi_text(self, text):
         """Parses ANSI escape sequences and applies color formatting."""
@@ -285,7 +285,7 @@ class Guick(wx.Frame):
             self.build_command_gui(parent, command)
 
         self.CreateStatusBar()
-        self.SetStatusText("Resize this frame to see how the sizers respond...")
+        self.SetStatusText("")
 
         self.SetClientSize(self.panel.GetSize())
         self.Centre()
@@ -320,9 +320,8 @@ class Guick(wx.Frame):
         style = wx.TE_MULTILINE | wx.TE_READONLY | wx.HSCROLL
         self.log = ANSITextCtrl(
             self.panel,
-            wx.ID_ANY,
-            size=(300, 100),
-            style=style
+            style=style,
+            size=(300, 200),
         )
         self.log.SetBackgroundColour(wx.Colour(0, 0, 0))
         # Set monospace font for log output
