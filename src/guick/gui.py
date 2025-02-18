@@ -149,15 +149,15 @@ class RedirectText:
 
 
 class NormalEntry:
-    def __init__(self, parent, sizer, param, row, default_text=None, longest_param_name=""):
-        self.param = param
-        self.parent = parent
+    def __init__(self, **kwargs):
+        self.param = kwargs["param"]
+        self.parent = kwargs["parent"]
         self.entry = None
         self.text_error = None
-        self.default_text = default_text
-        self.longest_param_name = longest_param_name
-        self.sizer = sizer
-        self.row = row
+        self.default_text = kwargs.get("default_text")
+        self.longest_param_name = kwargs.get("longest_param_name", "")
+        self.sizer = kwargs["sizer"]
+        self.row = kwargs["row"]
         self.build_label()
         self.build_entry()
         self.build_button()
@@ -175,23 +175,25 @@ class NormalEntry:
         # Password
         if self.param.hide_input:
             self.entry = wx.TextCtrl(
-                self.parent, -1, size=(500, -1), style=wx.TE_RICH | wx.TE_PASSWORD
+                self.parent, -1, size=(100, -1), style=wx.TE_RICH | wx.TE_PASSWORD
             )
         # Normal case
         else:
-            self.entry = wx.TextCtrl(self.parent, -1, size=(500, -1), style=wx.TE_RICH)
+            self.entry = wx.TextCtrl(self.parent, -1, size=(100, -1), style=wx.TE_RICH)
+        self.entry.SetMinSize((100, -1))
         if self.default_text:
             self.entry.SetValue(self.default_text)
         self.sizer.Add(self.entry, flag=wx.EXPAND, pos=(self.row, 1))
 
     def build_button(self):
-        # Invisible button to keep layout straight
-        b = buttons.GenButton(self.parent, -1, '      ', style=wx.BORDER_NONE)
-        b.Enable(False)
-        self.sizer.Add(b, (self.row, 2))
+        # Create fake button to know the size of the spacer
+        button = wx.Button(self.parent, -1, "Browse")
+        size = button.GetSize()
+        button.Destroy()
+        self.sizer.Add(size, (self.row, 2))
 
     def build_error(self):
-        self.text_error = wx.StaticText(self.parent, -1, "", size=(500, -1))
+        self.text_error = wx.StaticText(self.parent, -1, "", size=(300, -1))
         font = wx.Font(wx.FontInfo(8))
         self.text_error.SetFont(font)
         self.text_error.SetForegroundColour((255, 0, 0))
@@ -216,11 +218,23 @@ class BoolEntry(NormalEntry):
         self.sizer.Add(self.entry, flag=wx.EXPAND, pos=(self.row, 1))
 
 
+class SliderEntry(NormalEntry):
+    def build_entry(self):
+        initial_value = int(self.default_text) if self.default_text else self.param.type.min
+        self.entry = wx.Slider(
+            self.parent, value=initial_value, minValue=self.param.type.min, maxValue=self.param.type.max,
+            style=wx.SL_HORIZONTAL | wx.SL_AUTOTICKS | wx.SL_LABELS
+            )
+
+        self.entry.SetTickFreq(int(math.pow(10, math.ceil(math.log10(self.param.type.max - self.param.type.min) - 1))))
+        self.sizer.Add(self.entry, flag=wx.EXPAND, pos=(self.row, 1))
+
+
 class PathEntry(NormalEntry):
-    def __init__(self, parent, sizer, param, row, longest_param_name="", default_text=None, callback=None):
+    def __init__(self, **kwargs):
         self.button = None
-        self.callback = callback
-        super().__init__(parent, sizer, param, row, default_text, longest_param_name)
+        self.callback = kwargs.get("callback")
+        super().__init__(**kwargs)
         self.file_drop_target = MyFileDropTarget(self.entry)
         self.entry.SetDropTarget(self.file_drop_target)
 
@@ -428,19 +442,68 @@ class Guick(wx.Frame):
                     )
                 elif isinstance(param.type, click.Path):
                     if param.type.file_okay:
-                        widgets = PathEntry(self.panel, sizer, param, 2 * idx_param, default_text=prefilled_value, callback=self.file_open, longest_param_name=longest_param_name)
+                        widgets = PathEntry(
+                            parent=panel,
+                            sizer=sizer,
+                            param=param,
+                            row=2 * idx_param,
+                            default_text=prefilled_value,
+                            callback=self.file_open,
+                            longest_param_name=longest_param_name
+                        )
                         self.button[param.name] = widgets.button
                     else:
-                        widgets = PathEntry(self.panel, sizer, param, 2 * idx_param, default_text=prefilled_value, callback=self.dir_open, longest_param_name=longest_param_name)
+                        widgets = PathEntry(
+                            parent=panel,
+                            sizer=sizer,
+                            param=param,
+                            row=2 * idx_param,
+                            default_text=prefilled_value,
+                            callback=self.dir_open,
+                            longest_param_name=longest_param_name
+                        )
                         self.button[param.name] = widgets.button
                 # Choice
                 elif isinstance(param.type, click.Choice):
-                    widgets = ChoiceEntry(self.panel, sizer, param, 2 * idx_param, longest_param_name=longest_param_name, default_text=prefilled_value)
+                    widgets = ChoiceEntry(
+                        parent=panel,
+                        sizer=sizer,
+                        param=param,
+                        row=2 * idx_param,
+                        longest_param_name=longest_param_name,
+                        default_text=prefilled_value
+                    )
                 # bool
                 elif isinstance(param.type, click.types.BoolParamType):
-                    widgets = BoolEntry(self.panel, sizer, param, 2 * idx_param, longest_param_name=longest_param_name, default_text=prefilled_value)
+                    widgets = BoolEntry(
+                        parent=panel,
+                        sizer=sizer,
+                        param=param,
+                        row=2 * idx_param,
+                        longest_param_name=longest_param_name,
+                        default_text=prefilled_value
+                    )
+                elif isinstance(param.type, click.types.IntRange):
+                    print(param.type.min, param.type.max)
+                    widgets = SliderEntry(
+                        parent=panel,
+                        sizer=sizer,
+                        param=param,
+                        row=2 * idx_param,
+                        longest_param_name=longest_param_name,
+                        default_text=prefilled_value,
+                        min_value=param.type.min,
+                        max_value=param.type.max
+                    )
                 else:
-                    widgets = NormalEntry(self.panel, sizer, param, 2 * idx_param, longest_param_name=longest_param_name, default_text=prefilled_value)
+                    widgets = NormalEntry(
+                        parent=panel,
+                        sizer=sizer,
+                        param=param,
+                        row=2 * idx_param,
+                        longest_param_name=longest_param_name,
+                        default_text=prefilled_value
+                    )
                 self.entry[param.name] = widgets.entry
                 self.text_error[param.name] = widgets.text_error
         self.optional_gbs.AddGrowableCol(1)
