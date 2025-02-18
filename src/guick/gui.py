@@ -290,19 +290,31 @@ class Guick(wx.Frame):
         history_folder.mkdir(parents=True, exist_ok=True)
         self.history_file = history_folder / "history.toml"
 
+        self.panel = wx.Panel(
+            self,
+            -1,
+            style=wx.DEFAULT_FRAME_STYLE | wx.CLIP_CHILDREN | wx.FULL_REPAINT_ON_RESIZE,
+        )
+        vbox = wx.BoxSizer(wx.VERTICAL)
         # If it is a group, create a notebook for each command
         if isinstance(ctx.command, click.Group):
-            self.notebook = wx.Notebook(self, -1)
+            self.notebook = wx.Notebook(self.panel, -1)
             parent = self.notebook
             for name in ctx.command.commands:
                 command = ctx.command.commands.get(name)
-                self.build_command_gui(parent, command)
-                parent.AddPage(self.panel, name, 1, 0)
+                panel = self.build_command_gui(parent, command)
+                self.notebook.AddPage(panel, name, 1, 0)
+                self.panel.SetBackgroundColour(wx.Colour((240, 240, 240, 255)))
+            font = wx.Font(wx.FontInfo(14).Bold())
+            self.notebook.SetFont(font)
+            vbox.Add(self.notebook, 0, wx.EXPAND | wx.ALL, 10)
         # Otherwise, create a single panel
         else:
-            parent = self
+            parent = self.panel
             command = ctx.command
-            self.build_command_gui(parent, command)
+            panel = self.build_command_gui(parent, command)
+            vbox.Add(panel, 0, wx.EXPAND | wx.ALL, 10)
+
         # # Create the log
         self.log_panel = LogPanel(self.panel)
         vbox.Add(self.log_panel, 1, flag=wx.EXPAND | wx.ALL, border=10)
@@ -348,24 +360,8 @@ class Guick(wx.Frame):
 
     def build_command_gui(self, parent, command):
         # self.panel = scrolled.ScrolledPanel(
-        self.panel = wx.Panel(
-            parent,
-            -1,
-            style=wx.TAB_TRAVERSAL | wx.CLIP_CHILDREN | wx.FULL_REPAINT_ON_RESIZE,
-        )
-        # Create the log
-        style = wx.TE_MULTILINE | wx.TE_READONLY | wx.HSCROLL
-        self.log = ANSITextCtrl(
-            self.panel,
-            style=style,
-            size=(300, 200),
-        )
-        self.log.SetBackgroundColour(wx.Colour(0, 0, 0))
-        # Set monospace font for log output
-        chosen_font = get_best_monospace_font()
-        font = wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, faceName=chosen_font)
-        self.log.SetFont(font)
 
+        panel = wx.Panel(parent, -1)
         # Load the history file if it exists
         config = tomlkit.document()
         try:
@@ -392,7 +388,7 @@ class Guick(wx.Frame):
         main_boxsizer = wx.BoxSizer(wx.VERTICAL)
 
         if required_param:
-            sb = wx.StaticBox(self.panel, label="Required Parameters")
+            sb = wx.StaticBox(panel, label="Required Parameters")
             font = wx.Font(wx.FontInfo(10).Bold())
 
             # set font for the statictext
@@ -402,19 +398,13 @@ class Guick(wx.Frame):
                 flag=wx.EXPAND | wx.TOP | wx.LEFT | wx.RIGHT, border=10)
             self.required_gbs = wx.GridBagSizer(vgap=1, hgap=5)
         if optional_param:
-            sb = wx.StaticBox(self.panel, label="Optional Parameters")
+            font = wx.Font(wx.FontInfo(10).Bold())
+            sb = wx.StaticBox(panel, label="Optional Parameters")
             sb.SetFont(font)
             self.optional_boxsizer = wx.StaticBoxSizer(sb, wx.VERTICAL)
             main_boxsizer.Add(self.optional_boxsizer,
                 flag=wx.EXPAND | wx.TOP | wx.LEFT | wx.RIGHT, border=10)
             self.optional_gbs = wx.GridBagSizer(vgap=1, hgap=5)
-        sb = wx.StaticBox(self.panel, label="Log")
-        sb.SetFont(font)
-        self.log_st = wx.StaticBoxSizer(sb, wx.VERTICAL)
-        self.log_st.Add(self.log, 1, wx.EXPAND | wx.ALL, 10)
-        main_boxsizer.Add(self.log_st, 1,
-            flag=wx.EXPAND | wx.ALL, border=10)
-        sys.stdout = RedirectText(self.log)
 
         real_params = 0
         idx_required_param = -1
@@ -507,8 +497,6 @@ class Guick(wx.Frame):
                     )
                 self.entry[param.name] = widgets.entry
                 self.text_error[param.name] = widgets.text_error
-        self.optional_gbs.AddGrowableCol(1)
-        self.required_gbs.AddGrowableCol(1)
         # line = wx.StaticLine(p, -1, size=(20,-1), style=wx.LI_HORIZONTAL)
         # gbs.Add(line, (i+1, 0), (i+1, 3), wx.EXPAND|wx.RIGHT|wx.TOP, 5)
 
@@ -529,13 +517,17 @@ class Guick(wx.Frame):
         )
         cancel_button.Bind(wx.EVT_BUTTON, self.on_close_button)
         main_boxsizer.Add(hbox, flag=wx.ALIGN_RIGHT | wx.RIGHT | wx.ALL, border=10)
-        self.optional_boxsizer.Add(self.optional_gbs, 1, wx.EXPAND | wx.ALL, 10)
-        self.required_boxsizer.Add(self.required_gbs, 1, wx.EXPAND | wx.ALL, 10)
-        self.optional_boxsizer.SetSizeHints(self)
-        self.required_boxsizer.SetSizeHints(self)
-        main_boxsizer.SetSizeHints(self)
+        if optional_param:
+            self.optional_gbs.AddGrowableCol(1)
+            self.optional_boxsizer.Add(self.optional_gbs, 1, wx.EXPAND | wx.ALL, 10)
+            self.optional_boxsizer.SetSizeHints(panel)
+        if required_param:
+            self.required_gbs.AddGrowableCol(1)
+            self.required_boxsizer.Add(self.required_gbs, 1, wx.EXPAND | wx.ALL, 10)
+            self.required_boxsizer.SetSizeHints(panel)
 
-        self.panel.SetSizerAndFit(main_boxsizer)
+        panel.SetSizerAndFit(main_boxsizer)
+        return panel
 
     def dir_open(self, event):
         dlg = wx.DirDialog(
