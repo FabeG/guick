@@ -15,6 +15,8 @@ import click
 import platformdirs
 import tomlkit
 import wx
+import wx.html
+
 import wx.lib.agw.labelbook as LB
 import wx.lib.buttons as buttons
 import wx.lib.scrolledpanel as scrolled
@@ -74,37 +76,29 @@ class ANSITextCtrl(wx.TextCtrl):
 
 
 class AboutDialog(wx.Dialog):
-    def __init__(self, parent, head, description):
-        super().__init__(parent, title="About")
+    def __init__(self, parent, title, head, description):
+        super().__init__(parent, title=title)
 
-        # Main sizer
-        main_sizer = wx.BoxSizer(wx.VERTICAL)
+        html = wx.html.HtmlWindow(self)
+        URL_EXTRACT_PATTERN = "(https?:\\/\\/(?:www\\.)?[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b(?:[-a-zA-Z0-9()@:%_\\+.~#?&\\/=]*))"
+        url_matches = re.findall(URL_EXTRACT_PATTERN, description)
+        if url_matches:
+            description = re.sub(URL_EXTRACT_PATTERN, r'<a href="\1">\1</a>', description)
+        html.SetPage(f"""
+        <b>{head}</b>
+        <p>{description}</p>
+        """)
 
-        # Application title
-        title = wx.StaticText(self, label=f"  {head}  ")
-        title_font = title.GetFont()
-        title_font.MakeBold().MakeLarger()
-        title.SetFont(title_font)
-        main_sizer.Add(title, flag=wx.ALIGN_CENTER | wx.TOP, border=20)
+        # Bind link clicks to open in browser
+        html.Bind(wx.html.EVT_HTML_LINK_CLICKED, self.OnLinkClicked)
 
-        # Description
-        description_st = wx.StaticText(self, label=description)
-        font = get_best_monospace_font()
-        description_st.SetFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, faceName=font))
-        main_sizer.Add(description_st, flag=wx.ALIGN_CENTER | wx.ALL, border=10)
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        sizer.Add(html, 1, wx.EXPAND | wx.ALL, 10)
+        self.SetSizer(sizer)
 
-        # OK button
-        ok_button = wx.Button(self, label="OK")
-        ok_button.Bind(wx.EVT_BUTTON, self.on_close)
-        main_sizer.Add(ok_button, flag=wx.ALIGN_CENTER | wx.ALL, border=10)
-
-        # Set sizer and auto-fit dialog size
-        self.SetSizer(main_sizer)
-        # Resize dialog to fit content
-        self.Fit()
-
-    def on_close(self, event):
-        self.Destroy()
+    def OnLinkClicked(self, event):
+        url = event.GetLinkInfo().GetHref()
+        webbrowser.open(url)  # Open in default browser
 
 
 def get_best_monospace_font():
