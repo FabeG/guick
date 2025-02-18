@@ -448,23 +448,23 @@ class Guick(wx.Frame):
         # line = wx.StaticLine(p, -1, size=(20,-1), style=wx.LI_HORIZONTAL)
         # gbs.Add(line, (i+1, 0), (i+1, 3), wx.EXPAND|wx.RIGHT|wx.TOP, 5)
 
-        if True:
+        hbox = wx.BoxSizer(wx.HORIZONTAL)
+        ok_button = wx.Button(panel, -1, label="Ok")
+        hbox.Add(
+            ok_button,
+            flag=wx.BOTTOM | wx.RIGHT,
+            border=10,
+        )
+        ok_button.Bind(wx.EVT_BUTTON, self.on_ok_button)
 
-            ok_button = wx.Button(self.panel, -1, label="Ok")
-            main_boxsizer.Add(
-                ok_button,
-                flag=wx.BOTTOM | wx.RIGHT | wx.ALIGN_RIGHT,
-                border=10,
-            )
-            ok_button.Bind(wx.EVT_BUTTON, self.on_ok_button)
-
-            # button5 = wx.Button(parent, label="Cancel")
-            # self.gbs.Add(
-            #     button5,
-            #     pos=(2 * (real_params + 1), 2),
-            #     flag=wx.BOTTOM | wx.RIGHT,
-            #     border=10,
-            # )
+        cancel_button = wx.Button(panel, label="Cancel")
+        hbox.Add(
+            cancel_button,
+            flag=wx.BOTTOM | wx.LEFT,
+            border=10,
+        )
+        cancel_button.Bind(wx.EVT_BUTTON, self.on_close_button)
+        main_boxsizer.Add(hbox, flag=wx.ALIGN_RIGHT | wx.RIGHT | wx.ALL, border=10)
         self.optional_boxsizer.Add(self.optional_gbs, 1, wx.EXPAND | wx.ALL, 10)
         self.required_boxsizer.Add(self.required_gbs, 1, wx.EXPAND | wx.ALL, 10)
         self.optional_boxsizer.SetSizeHints(self)
@@ -512,7 +512,12 @@ class Guick(wx.Frame):
             ][0]
             self.entry[param].SetValue(path)
 
+    def on_close_button(self, event):
+        sys.exit()
+
     def on_ok_button(self, event):
+        # Disable the button
+        event.GetEventObject().Disable()
         config = tomlkit.document()
         try:
             with open(self.history_file, mode="rt", encoding="utf-8") as fp:
@@ -554,6 +559,7 @@ class Guick(wx.Frame):
                 with contextlib.suppress(KeyError):
                     self.text_error[param.name].SetLabel("")
         if errors:
+            event.GetEventObject().Enable()
             return
         # for param in self.ctx.command.params:
         for param in selected_command.params:
@@ -565,11 +571,13 @@ class Guick(wx.Frame):
             tomlkit.dump(config, fp)
 
         if args and not self.ctx.allow_extra_args and not self.ctx.resilient_parsing:
+            event.GetEventObject().Enable()
             raise Exception("unexpected argument")
 
         self.ctx.args = args
         thread = Thread(target=selected_command.invoke, args=(self.ctx,), daemon=True)
         thread.start()
+        event.GetEventObject().Enable()
 
 
 class GroupGui(click.Group):
