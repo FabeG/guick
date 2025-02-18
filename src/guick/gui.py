@@ -75,6 +75,29 @@ class ANSITextCtrl(wx.TextCtrl):
                 self.AppendText(part)
 
 
+class LogPanel(wx.Panel):
+    """A panel containing a shared log in a StaticBox."""
+    def __init__(self, parent):
+        super().__init__(parent)
+
+        sb = wx.StaticBox(self, label="Log")
+        font = wx.Font(wx.FontInfo(10).Bold())
+        sb.SetFont(font)
+        box_sizer = wx.StaticBoxSizer(sb, wx.VERTICAL)
+        # Create the log
+        self.log_ctrl = ANSITextCtrl(self, style=wx.TE_MULTILINE | wx.TE_READONLY | wx.HSCROLL, size=(-1, 100))
+        self.log_ctrl.SetMinSize((100, 100))
+        font = get_best_monospace_font()
+        self.log_ctrl.SetFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, faceName=font))
+
+        box_sizer.Add(self.log_ctrl, 1, wx.EXPAND | wx.ALL, 5)
+        self.SetSizer(box_sizer)
+        box_sizer.SetSizeHints(self)
+        self.Layout()
+
+        self.log_ctrl.SetBackgroundColour(wx.Colour(0, 0, 0))
+
+
 class AboutDialog(wx.Dialog):
     def __init__(self, parent, title, head, description):
         super().__init__(parent, title=title)
@@ -277,11 +300,16 @@ class Guick(wx.Frame):
             parent = self
             command = ctx.command
             self.build_command_gui(parent, command)
+        # # Create the log
+        self.log_panel = LogPanel(self.panel)
+        vbox.Add(self.log_panel, 1, flag=wx.EXPAND | wx.ALL, border=10)
+        sys.stdout = RedirectText(self.log_panel.log_ctrl)
+        self.panel.SetSizerAndFit(vbox)
+        self.Fit()
 
         self.CreateStatusBar()
         self.SetStatusText("")
 
-        self.SetClientSize(self.panel.GetSize())
         self.Centre()
 
     def on_help(self, event, url):
