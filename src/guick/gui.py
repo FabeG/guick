@@ -1,4 +1,5 @@
 import contextlib
+import math
 import functools
 import inspect
 import io
@@ -263,38 +264,26 @@ class Guick(wx.Frame):
         self.button = {}
         self.text_error = {}
 
-        # If url defined in epilog, add a help menu
-        url_matches = []
-        if ctx.command.epilog:
-            URL_EXTRACT_PATTERN = "(https?:\\/\\/(?:www\\.)?[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b(?:[-a-zA-Z0-9()@:%_\\+.~#?&\\/=]*))"
-            url_matches = re.findall(URL_EXTRACT_PATTERN, ctx.command.epilog)
+        # Create Help menu
+        menubar = wx.MenuBar()
+        help_menu = wx.Menu()
+        help_item = wx.MenuItem(help_menu, -1, '&Help')
+        help_menu.Append(help_item)
+        self.Bind(wx.EVT_MENU, self.on_help, help_item)
+
         # If version option defined, add a version menu
         version_option = False
         if any(
             param.name == "version" and param.is_eager
             for param in ctx.command.params
         ):
-            version_option = True
-        try:
-            if url_matches or version_option:
-                menubar = wx.MenuBar()
-                file_menu = wx.Menu()
 
-                if url_matches:
-                    help_item = wx.MenuItem(file_menu, wx.ID_EXIT, '&Help')
-                    file_menu.Append(help_item)
-                    self.Bind(wx.EVT_MENU, lambda x, y=url_matches[0]: self.on_help(x, y), help_item)
+            version_item = wx.MenuItem(help_menu, -1, '&Version')
+            help_menu.Append(version_item)
+            self.Bind(wx.EVT_MENU, self.OnVersion, version_item)
 
-                if version_option:
-                    version_item = wx.MenuItem(file_menu, wx.ID_EXIT, '&Version')
-                    file_menu.Append(version_item)
-                    self.Bind(wx.EVT_MENU, self.OnVersion, version_item)
-
-                menubar.Append(file_menu, '&Help')
-
-                self.SetMenuBar(menubar)
-        except Exception as e:
-            print(e)
+        menubar.Append(help_menu, '&Help')
+        self.SetMenuBar(menubar)
 
         # Set history file name
         history_folder = Path(platformdirs.user_config_dir("history", "guick")) / ctx.info_name
@@ -326,8 +315,20 @@ class Guick(wx.Frame):
 
         self.Centre()
 
-    def on_help(self, event, url):
-        webbrowser.open(url)
+    def on_help(self, event):
+        head = self.ctx.command.name
+        short_help = self.ctx.command.short_help
+        help_text = self.ctx.command.help
+        help_epilog = self.ctx.command.epilog
+        description = ""
+        if short_help:
+            description += f"{short_help}<br><br>"
+        if help_text:
+            description += f"{help_text}<br><br>"
+        if help_epilog:
+            description += f"{help_epilog}"
+        dlg = AboutDialog(self, "Help", head, description)
+        dlg.ShowModal()  # Show dialog modally
 
     def OnVersion(self, event):
         for param in self.ctx.command.params:
@@ -341,7 +342,7 @@ class Guick(wx.Frame):
                     output = buf.getvalue()
         title = output.split("\n")[0]
         description = "\n".join(output.split("\n")[1:])
-        dlg = AboutDialog(self, title, description)
+        dlg = AboutDialog(self, "About", title, description)
         dlg.ShowModal()  # Show dialog modally
 
 
