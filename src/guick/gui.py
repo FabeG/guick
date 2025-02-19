@@ -475,7 +475,6 @@ class Guick(wx.Frame):
                         default_text=prefilled_value
                     )
                 elif isinstance(param.type, click.types.IntRange):
-                    print(param.type.min, param.type.max)
                     widgets = SliderEntry(
                         parent=panel,
                         sizer=sizer,
@@ -578,7 +577,6 @@ class Guick(wx.Frame):
         try:
             with open(self.history_file, mode="rt", encoding="utf-8") as fp:
                 config = tomlkit.load(fp)
-                print(config)
         except FileNotFoundError:
             pass
         if not config.get(self.ctx.command.name):
@@ -588,7 +586,6 @@ class Guick(wx.Frame):
             key: entry.GetValue() if entry.GetValue() != "" else None
             for key, entry in self.entry.items()
         }
-        print(opts)
         args = []
         errors = {}
         try:
@@ -599,12 +596,10 @@ class Guick(wx.Frame):
             selected_command = self.ctx.command
         # for param in self.ctx.command.params:
         for param in selected_command.params:
-            print(param)
             try:
                 value, args = param.handle_parse_result(self.ctx, opts, args)
             except Exception as exc:
                 errors[exc.param.name] = exc
-                print(exc)
 
         # for param in self.ctx.command.commands.get(selected_command).params:
         # for param in self.ctx.command.params:
