@@ -20,3 +20,4 @@ dependencies = [
 [tool.setuptools_scm]
 version_file = "src/guick/_version.py"
 version_scheme = "no-guess-dev"
+local_scheme = 'no-local-version'
