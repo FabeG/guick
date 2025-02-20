@@ -8,7 +8,6 @@ dynamic = ["version"]
 description = "Graphical User Interface for Click"
 readme = "README.md"
 requires-python = ">=3.9"
-license = {text = "MIT"}
 dependencies = [
     "click>=8.1.0",
     "platformdirs",
@@ -16,6 +15,9 @@ dependencies = [
     "wxpython",
 ]
 
+
+[tool.setuptools]
+license-files = []
 
 [tool.setuptools_scm]
 version_file = "src/guick/_version.py"
