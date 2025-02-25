@@ -54,8 +54,11 @@ ANSI_BACKGROUND_COLOR = {
 
 
 class ANSITextCtrl(wx.TextCtrl):
-    def __init__(self, parent, style, size, *args, **kwargs):
+    def __init__(self, parent, style, size, gauge, gauge_text, *args, **kwargs):
         super().__init__(parent, style=wx.TE_MULTILINE | wx.TE_RICH2, size=size)
+        self.gauge = gauge
+        self.gauge_text = gauge_text
+        self.gauge_value = 0
 
     def append_ansi_text(self, text):
         """Parses ANSI escape sequences and applies color formatting."""
@@ -72,8 +75,16 @@ class ANSITextCtrl(wx.TextCtrl):
                     current_attr.SetBackgroundColour(ANSI_BACKGROUND_COLOR[code])
                     current_attr.SetTextColour(wx.Colour(255, 255, 255))
             else:  # Normal text
-                self.SetDefaultStyle(current_attr)
-                self.AppendText(part)
+                if "\r" in part:
+                    # Regex to extract the progress bar value from the tqdm output
+                    regex_tqdm = re.match(r"([\d\s]+)%\|.*\|(.*)", part)
+                    if regex_tqdm:
+                        self.gauge_value = int(regex_tqdm.group(1))
+                        self.gauge.SetValue(self.gauge_value)
+                        self.gauge_text.SetValue(regex_tqdm.group(2))
+                else:
+                    self.SetDefaultStyle(current_attr)
+                    self.AppendText(part)
 
 
 class LogPanel(wx.Panel):
@@ -86,12 +97,19 @@ class LogPanel(wx.Panel):
         sb.SetFont(font)
         box_sizer = wx.StaticBoxSizer(sb, wx.VERTICAL)
         # Create the log
-        self.log_ctrl = ANSITextCtrl(self, style=wx.TE_MULTILINE | wx.TE_READONLY | wx.HSCROLL, size=(-1, 100))
-        self.log_ctrl.SetMinSize((100, 100))
+        self.gauge = wx.Gauge(self, -1, 100, size=(-1, 10))
         font = get_best_monospace_font()
+        self.gauge_text = wx.TextCtrl(self, -1, "", size=(400, -1), style=wx.TE_READONLY)
+        self.gauge_text.SetFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, faceName=font))
+        hbox = wx.BoxSizer(wx.HORIZONTAL)
+        hbox.Add(self.gauge, 1, wx.EXPAND | wx.ALL, 5)
+        hbox.Add(self.gauge_text, 0, wx.EXPAND | wx.ALL, 5)
+        self.log_ctrl = ANSITextCtrl(self, style=wx.TE_MULTILINE | wx.TE_READONLY | wx.HSCROLL, size=(-1, 100), gauge=self.gauge, gauge_text=self.gauge_text)
+        self.log_ctrl.SetMinSize((100, 100))
         self.log_ctrl.SetFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, faceName=font))
 
         box_sizer.Add(self.log_ctrl, 1, wx.EXPAND | wx.ALL, 5)
+        box_sizer.Add(hbox, 0, wx.EXPAND | wx.ALL, 5)
         self.SetSizer(box_sizer)
         box_sizer.SetSizeHints(self)
         self.Layout()
