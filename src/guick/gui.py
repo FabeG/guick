@@ -117,30 +117,58 @@ class LogPanel(wx.Panel):
         self.log_ctrl.SetBackgroundColour(wx.Colour(0, 0, 0))
 
 
-class AboutDialog(wx.Dialog):
-    def __init__(self, parent, title, head, description):
+class AboutDialog(wx.Frame):
+    def __init__(self, parent, title, head, description, font=None):
         super().__init__(parent, title=title)
 
-        html = wx.html.HtmlWindow(self)
-        URL_EXTRACT_PATTERN = "(https?:\\/\\/(?:www\\.)?[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b(?:[-a-zA-Z0-9()@:%_\\+.~#?&\\/=]*))"
-        url_matches = re.findall(URL_EXTRACT_PATTERN, description)
-        if url_matches:
-            description = re.sub(URL_EXTRACT_PATTERN, r'<a href="\1">\1</a>', description)
-        html.SetPage(f"""
-        <b>{head}</b>
-        <p>{description}</p>
-        """)
-
-        # Bind link clicks to open in browser
-        html.Bind(wx.html.EVT_HTML_LINK_CLICKED, self.OnLinkClicked)
-
+        # Create a panel to hold the text control and button
+        panel = wx.Panel(self)
+        
+        # Create a sizer for the panel to manage layout
         sizer = wx.BoxSizer(wx.VERTICAL)
-        sizer.Add(html, 1, wx.EXPAND | wx.ALL, 10)
-        self.SetSizer(sizer)
+
+        # Create the TextCtrl (HTML content)
+        self.html = wx.TextCtrl(panel, size=(600, 200), style=wx.TE_AUTO_URL | wx.TE_MULTILINE | wx.TE_READONLY)
+        
+        if font == "monospace":
+            font = get_best_monospace_font()
+            self.html.SetFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, faceName=font))
+        self.html.WriteText(head)
+        self.html.WriteText("\n\n")
+        self.html.WriteText(description)
+        # Ensure the text starts at the beginning
+        self.html.SetInsertionPoint(0)
+        
+        # Add TextCtrl to sizer
+        sizer.Add(self.html, 1, wx.EXPAND | wx.ALL, 10)
+
+        # Create the Close Button
+        close_button = wx.Button(panel, label="Close")
+        sizer.Add(close_button, 0, wx.CENTER | wx.TOP | wx.BOTTOM, 10)
+
+        # Bind the button to close the dialog
+        close_button.Bind(wx.EVT_BUTTON, self.OnClose)
+        self.html.Bind(wx.EVT_TEXT_URL, self.OnLinkClicked)
+
+        # Set the sizer for the panel
+        panel.SetSizerAndFit(sizer)
+
+        # Set the size of the frame to fit the panel
+        self.Fit()
+
+        # Show the frame
+        self.Show()
+
 
     def OnLinkClicked(self, event):
-        url = event.GetLinkInfo().GetHref()
-        webbrowser.open(url)  # Open in default browser
+        if event.MouseEvent.LeftUp():
+            url = self.html.GetRange(event.GetURLStart(), event.GetURLEnd())
+            webbrowser.open(url)  # Open in default browser
+        event.Skip()
+
+    def OnClose(self, event):
+        # Close the window when the button is clicked
+        self.Close()
 
 
 def get_best_monospace_font():
@@ -295,6 +323,8 @@ class Guick(wx.Frame):
             param.name == "version" and param.is_eager
             for param in ctx.command.params
         ):
+            # Get version before redirecting stdout
+            self.version = self.get_version()
 
             version_item = wx.MenuItem(help_menu, -1, '&Version')
             help_menu.Append(version_item)
@@ -352,28 +382,32 @@ class Guick(wx.Frame):
         help_epilog = self.ctx.command.epilog
         description = ""
         if short_help:
-            description += f"{short_help}<br><br>"
+            description += f"{short_help}\n\n"
         if help_text:
-            description += f"{help_text}<br><br>"
+            description += f"{help_text}\n\n"
         if help_epilog:
             description += f"{help_epilog}"
         dlg = AboutDialog(self, "Help", head, description)
         dlg.ShowModal()  # Show dialog modally
 
-    def OnVersion(self, event):
+    def get_version(self):
         for param in self.ctx.command.params:
             if param.name == "version":
-
                 with io.StringIO() as buf, contextlib.redirect_stdout(buf):
                     try:
                         param.callback(self.ctx, param, True)
                     except Exception:
                         pass
                     output = buf.getvalue()
-        title = output.split("\n")[0]
-        description = "\n".join(output.split("\n")[1:])
-        dlg = AboutDialog(self, "About", title, description)
-        dlg.ShowModal()  # Show dialog modally
+                    break
+        return output
+
+
+    def OnVersion(self, event):
+        head = self.ctx.command.name
+        
+        dlg = AboutDialog(self, "About", head, self.version, font="monospace")
+        dlg.Show()
 
 
     def build_command_gui(self, parent, command):
