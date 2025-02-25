@@ -470,7 +470,7 @@ class Guick(wx.Frame):
                 sizer = self.optional_gbs
                 idx_optional_param += 1
                 idx_param = idx_optional_param
-            if not param.is_eager:
+            if not param.is_eager and not param.hidden:
                 try:
                     prefilled_value = config[command.name][param.name]
                 except KeyError:
@@ -624,7 +624,7 @@ class Guick(wx.Frame):
 
     def on_ok_button(self, event):
         # Disable the button
-        event.GetEventObject().Disable()
+        # event.GetEventObject().Disable()
         config = tomlkit.document()
         try:
             with open(self.history_file, mode="rt", encoding="utf-8") as fp:
@@ -656,11 +656,12 @@ class Guick(wx.Frame):
         # for param in self.ctx.command.commands.get(selected_command).params:
         # for param in self.ctx.command.params:
         for param in selected_command.params:
-            if errors.get(param.name):
-                self.text_error[param.name].SetLabel(str(errors[param.name]))
-            else:
-                with contextlib.suppress(KeyError):
-                    self.text_error[param.name].SetLabel("")
+            if not param.hidden:
+                if errors.get(param.name):
+                    self.text_error[param.name].SetLabel(str(errors[param.name]))
+                else:
+                    with contextlib.suppress(KeyError):
+                        self.text_error[param.name].SetLabel("")
         if errors:
             event.GetEventObject().Enable()
             return
@@ -680,7 +681,8 @@ class Guick(wx.Frame):
         self.ctx.args = args
         thread = Thread(target=selected_command.invoke, args=(self.ctx,), daemon=True)
         thread.start()
-        event.GetEventObject().Enable()
+        # event.GetEventObject().Enable()
+        # self.Destroy()
 
 
 class GroupGui(click.Group):
