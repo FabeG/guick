@@ -194,11 +194,11 @@ class NormalEntry:
         # Password
         if self.param.hide_input:
             self.entry = wx.TextCtrl(
-                self.parent, -1, size=(100, -1), style=wx.TE_RICH | wx.TE_PASSWORD
+                self.parent, -1, size=(500, -1), style=wx.TE_RICH | wx.TE_PASSWORD
             )
         # Normal case
         else:
-            self.entry = wx.TextCtrl(self.parent, -1, size=(100, -1), style=wx.TE_RICH)
+            self.entry = wx.TextCtrl(self.parent, -1, size=(500, -1), style=wx.TE_RICH)
         self.entry.SetMinSize((100, -1))
         if self.default_text:
             self.entry.SetValue(self.default_text)
@@ -212,7 +212,7 @@ class NormalEntry:
         self.sizer.Add(size, (self.row, 2))
 
     def build_error(self):
-        self.text_error = wx.StaticText(self.parent, -1, "", size=(300, -1))
+        self.text_error = wx.StaticText(self.parent, -1, "", size=(500, -1))
         font = wx.Font(wx.FontInfo(8))
         self.text_error.SetFont(font)
         self.text_error.SetForegroundColour((255, 0, 0))
