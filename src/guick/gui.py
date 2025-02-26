@@ -293,9 +293,6 @@ class PathEntry(NormalEntry):
         self.sizer.Add(self.button, (self.row, 2))
 
 
-class CsvFile(click.Path):
-    name = "csv_file"
-
     def convert(self, value, param, ctx):
         if not value.endswith(".csv"):
             self.fail("File should be a csv file", param, ctx)
@@ -476,23 +473,29 @@ class Guick(wx.Frame):
                 except KeyError:
                     prefilled_value = str(param.default) if param.default else ""
                 real_params += 1
-                if isinstance(param.type, CsvFile):
-                    self.build_file_entry(
-                        param,
-                        2 * idx_param,
-                        wildcards="csv files|*.csv",
-                        default_text=prefilled_value,
-                    )
-                elif isinstance(param.type, click.Path):
+                if isinstance(param.type, click.Path):
                     if param.type.file_okay:
+                        # If help text is something like:
+                        # Excel file (.xlsx, .csv)
+                        # Text file (.txt or .log)
+                        # Extract the file type and the extensions, so that the file
+                        # dialog can filter the files
+                        wildcards = "All files|*.*"
+                        if param.help:
+                            wildcard_raw = re.search(r"(\w+) file[s]? \(([a-zA-Z ,\.]*)\)", param.help)
+                            if wildcard_raw:
+                                file_type, extensions_raw = wildcard_raw.groups()
+                                extensions = re.findall(r"\.(\w+(?:\.\w+)?)", extensions_raw)
+                                extensions_text = ";".join([f"*.{ext}" for ext in extensions])
+                                wildcards = f"{file_type} files|{extensions_text}"
                         widgets = PathEntry(
                             parent=panel,
                             sizer=sizer,
                             param=param,
                             row=2 * idx_param,
                             default_text=prefilled_value,
-                            callback=self.file_open,
-                            longest_param_name=longest_param_name
+                            callback=lambda evt, wildcards=wildcards: self.file_open(evt, wildcards),
+                            longest_param_name=longest_param_name,
                         )
                         self.button[param.name] = widgets.button
                     else:
@@ -602,7 +605,7 @@ class Guick(wx.Frame):
             message="Choose a file",
             defaultDir=os.getcwd(),
             defaultFile="",
-            wildcard=wildcard,
+            wildcard=wildcards,
             style=wx.FD_OPEN | wx.FD_CHANGE_DIR | wx.FD_FILE_MUST_EXIST | wx.FD_PREVIEW,
         )
 
