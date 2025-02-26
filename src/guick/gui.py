@@ -604,11 +604,18 @@ class Guick(wx.Frame):
             ][0]
             self.entry[param].SetValue(path)
 
-    def file_open(self, event, wildcard="All files|*.*"):
+    def file_open(self, event, wildcards="All files|*.*"):
+        param = [
+            param_name
+            for param_name, entry in self.button.items()
+            if entry == event.GetEventObject()
+        ][0]
+        path = self.entry[param].GetValue()
+        last_folder = Path(path).parent if path != "" else os.getcwd()
         dlg = wx.FileDialog(
             self,
             message="Choose a file",
-            defaultDir=os.getcwd(),
+            defaultDir=str(last_folder),
             defaultFile="",
             wildcard=wildcards,
             style=wx.FD_OPEN | wx.FD_CHANGE_DIR | wx.FD_FILE_MUST_EXIST | wx.FD_PREVIEW,
@@ -620,11 +627,6 @@ class Guick(wx.Frame):
             # This returns a Python list of files that were selected.
             path = dlg.GetPath()
             dlg.Destroy()
-            param = [
-                param_name
-                for param_name, entry in self.button.items()
-                if entry == event.GetEventObject()
-            ][0]
             self.entry[param].SetValue(path)
 
     def on_close_button(self, event):
