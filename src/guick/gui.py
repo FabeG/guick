@@ -104,8 +104,8 @@ class LogPanel(wx.Panel):
         hbox = wx.BoxSizer(wx.HORIZONTAL)
         hbox.Add(self.gauge, 1, wx.EXPAND | wx.ALL, 5)
         hbox.Add(self.gauge_text, 0, wx.EXPAND | wx.ALL, 5)
-        self.log_ctrl = ANSITextCtrl(self, style=wx.TE_MULTILINE | wx.TE_READONLY | wx.HSCROLL, size=(-1, 100), gauge=self.gauge, gauge_text=self.gauge_text)
-        self.log_ctrl.SetMinSize((100, 100))
+        self.log_ctrl = ANSITextCtrl(self, style=wx.TE_MULTILINE | wx.TE_READONLY | wx.HSCROLL, size=(-1, 200), gauge=self.gauge, gauge_text=self.gauge_text)
+        self.log_ctrl.SetMinSize((100, 200))
         self.log_ctrl.SetFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, faceName=font))
 
         box_sizer.Add(self.log_ctrl, 1, wx.EXPAND | wx.ALL, 5)
@@ -204,6 +204,7 @@ class NormalEntry:
         self.default_text = kwargs.get("default_text")
         self.longest_param_name = kwargs.get("longest_param_name", "")
         self.sizer = kwargs["sizer"]
+        self.min_size = (100, -1)
         self.row = kwargs["row"]
         self.build_label()
         self.build_entry()
@@ -227,7 +228,7 @@ class NormalEntry:
         # Normal case
         else:
             self.entry = wx.TextCtrl(self.parent, -1, size=(500, -1), style=wx.TE_RICH)
-        self.entry.SetMinSize((100, -1))
+        self.entry.SetMinSize(self.min_size)
         if self.default_text:
             self.entry.SetValue(self.default_text)
         self.sizer.Add(self.entry, flag=wx.EXPAND, pos=(self.row, 1))
@@ -242,6 +243,7 @@ class NormalEntry:
     def build_error(self):
         self.text_error = wx.StaticText(self.parent, -1, "", size=(500, -1))
         font = wx.Font(wx.FontInfo(8))
+        self.text_error.SetMinSize(self.min_size)
         self.text_error.SetFont(font)
         self.text_error.SetForegroundColour((255, 0, 0))
         self.sizer.Add(self.text_error, flag=wx.EXPAND, pos=(self.row + 1, 1))
@@ -252,6 +254,7 @@ class ChoiceEntry(NormalEntry):
         self.entry = wx.ComboBox(
             self.parent, -1, size=(500, -1), choices=list(self.param.type.choices)
         )
+        self.entry.SetMinSize(self.min_size)
         if self.default_text:
             self.entry.SetValue(self.default_text)
         self.sizer.Add(self.entry, flag=wx.EXPAND, pos=(self.row, 1))
@@ -260,6 +263,7 @@ class ChoiceEntry(NormalEntry):
 class BoolEntry(NormalEntry):
     def build_entry(self):
         self.entry = wx.CheckBox(self.parent, -1)
+        self.entry.SetMinSize(self.min_size)
         if self.default_text:
             self.entry.SetValue(bool(self.default_text))
         self.sizer.Add(self.entry, flag=wx.EXPAND, pos=(self.row, 1))
@@ -272,6 +276,7 @@ class SliderEntry(NormalEntry):
             self.parent, value=initial_value, minValue=self.param.type.min, maxValue=self.param.type.max,
             style=wx.SL_HORIZONTAL | wx.SL_AUTOTICKS | wx.SL_LABELS
             )
+        self.entry.SetMinSize(self.min_size)
 
         self.entry.SetTickFreq(int(math.pow(10, math.ceil(math.log10(self.param.type.max - self.param.type.min) - 1))))
         self.sizer.Add(self.entry, flag=wx.EXPAND, pos=(self.row, 1))
