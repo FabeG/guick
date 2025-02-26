@@ -667,6 +667,7 @@ class Guick(wx.Frame):
             if not param.hidden:
                 if errors.get(param.name):
                     self.text_error[param.name].SetLabel(str(errors[param.name]))
+                    self.text_error[param.name].SetToolTip(str(errors[param.name]))
                 else:
                     with contextlib.suppress(KeyError):
                         self.text_error[param.name].SetLabel("")
