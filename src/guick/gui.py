@@ -439,6 +439,7 @@ class Guick(wx.Frame):
             else:
                 optional_param.append(param)
         # main_sb = wx.StaticBox(self.panel, label="Main Static box")
+        self.Bind(wx.EVT_CLOSE, self.on_close_button)
         main_boxsizer = wx.BoxSizer(wx.VERTICAL)
 
         if required_param:
