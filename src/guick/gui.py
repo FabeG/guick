@@ -494,13 +494,17 @@ class Guick(wx.Frame):
                                 extensions = re.findall(r"\.(\w+(?:\.\w+)?)", extensions_raw)
                                 extensions_text = ";".join([f"*.{ext}" for ext in extensions])
                                 wildcards = f"{file_type} files|{extensions_text}"
+                        if param.type.readable:
+                            mode = "read"
+                        elif param.type.writable:
+                            mode = "write"
                         widgets = PathEntry(
                             parent=panel,
                             sizer=sizer,
                             param=param,
                             row=2 * idx_param,
                             default_text=prefilled_value,
-                            callback=lambda evt, wildcards=wildcards: self.file_open(evt, wildcards),
+                            callback=lambda evt, wildcards=wildcards, mode=mode: self.file_open(evt, wildcards, mode),
                             longest_param_name=longest_param_name,
                         )
                         self.button[param.name] = widgets.button
@@ -515,6 +519,34 @@ class Guick(wx.Frame):
                             longest_param_name=longest_param_name
                         )
                         self.button[param.name] = widgets.button
+                elif isinstance(param.type, click.File):
+                    # If help text is something like:
+                    # Excel file (.xlsx, .csv)
+                    # Text file (.txt or .log)
+                    # Extract the file type and the extensions, so that the file
+                    # dialog can filter the files
+                    wildcards = "All files|*.*"
+                    if param.help:
+                        wildcard_raw = re.search(r"(\w+) file[s]? \(([a-zA-Z ,\.]*)\)", param.help)
+                        if wildcard_raw:
+                            file_type, extensions_raw = wildcard_raw.groups()
+                            extensions = re.findall(r"\.(\w+(?:\.\w+)?)", extensions_raw)
+                            extensions_text = ";".join([f"*.{ext}" for ext in extensions])
+                            wildcards = f"{file_type} files|{extensions_text}"
+                    if "r" in param.type.mode:
+                        mode = "read"
+                    elif "w" in param.type.mode:
+                        mode = "write"
+                    widgets = PathEntry(
+                        parent=panel,
+                        sizer=sizer,
+                        param=param,
+                        row=2 * idx_param,
+                        default_text=prefilled_value,
+                        callback=lambda evt, wildcards=wildcards, mode=mode: self.file_open(evt, wildcards, mode),
+                        longest_param_name=longest_param_name,
+                    )
+                    self.button[param.name] = widgets.button
                 # Choice
                 elif isinstance(param.type, click.Choice):
                     widgets = ChoiceEntry(
@@ -605,7 +637,7 @@ class Guick(wx.Frame):
             ][0]
             self.entry[param].SetValue(path)
 
-    def file_open(self, event, wildcards="All files|*.*"):
+    def file_open(self, event, wildcards="All files|*.*", mode="read"):
         param = [
             param_name
             for param_name, entry in self.button.items()
@@ -613,13 +645,17 @@ class Guick(wx.Frame):
         ][0]
         path = self.entry[param].GetValue()
         last_folder = Path(path).parent if path != "" else os.getcwd()
+        if mode == "read":
+            style = wx.FD_OPEN | wx.FD_CHANGE_DIR | wx.FD_FILE_MUST_EXIST
+        else:
+            style = wx.FD_SAVE | wx.FD_CHANGE_DIR | wx.FD_OVERWRITE_PROMPT
         dlg = wx.FileDialog(
             self,
             message="Choose a file",
             defaultDir=str(last_folder),
             defaultFile="",
             wildcard=wildcards,
-            style=wx.FD_OPEN | wx.FD_CHANGE_DIR | wx.FD_FILE_MUST_EXIST | wx.FD_PREVIEW,
+            style=style,
         )
 
         # Show the dialog and retrieve the user response. If it is the OK response,

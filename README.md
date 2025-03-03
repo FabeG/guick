@@ -67,7 +67,6 @@ Just add ``cls=CommandGui`` to your ``click.command``, and guick will transform 
 > [!NOTE]
 > - Multi value options (using ``nargs``) or **tuples** as option types are not yet supported.
 > - Multiple options (using ``multiple=True``) are not yet supported.
-> - ``click.File`` type is not yet supported
 > - ``click.argument`` are not yet supported
 
 ## Using default values if any
