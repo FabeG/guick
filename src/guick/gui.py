@@ -216,12 +216,13 @@ class NormalEntry:
         size = static_text.GetSize()
         static_text.SetMinSize(size)
         static_text.SetLabel(self.param.name)
-        static_text.SetToolTip(self.param.help)
+        if hasattr(self.param, "help"):
+            static_text.SetToolTip(self.param.help)
         self.sizer.Add(static_text, (self.row, 0))
 
     def build_entry(self):
         # Password
-        if self.param.hide_input:
+        if hasattr(self.param, "hide_input") and self.param.hide_input:
             self.entry = wx.TextCtrl(
                 self.parent, -1, size=(500, -1), style=wx.TE_RICH | wx.TE_PASSWORD
             )
@@ -465,15 +466,15 @@ class Guick(wx.Frame):
         idx_required_param = -1
         idx_optional_param = -1
         for param in command.params:
-            if param.required:
-                sizer = self.required_gbs
-                idx_required_param += 1
-                idx_param = idx_required_param
-            else:
-                sizer = self.optional_gbs
-                idx_optional_param += 1
-                idx_param = idx_optional_param
-            if not param.is_eager and not param.hidden:
+            if not param.is_eager and ((hasattr(param, "hidden") and not param.hidden) or (not hasattr(param, "hidden"))):
+                if param.required:
+                    sizer = self.required_gbs
+                    idx_required_param += 1
+                    idx_param = idx_required_param
+                else:
+                    sizer = self.optional_gbs
+                    idx_optional_param += 1
+                    idx_param = idx_optional_param
                 try:
                     prefilled_value = config[command.name][param.name]
                 except KeyError:
@@ -526,7 +527,7 @@ class Guick(wx.Frame):
                     # Extract the file type and the extensions, so that the file
                     # dialog can filter the files
                     wildcards = "All files|*.*"
-                    if param.help:
+                    if hasattr(param, "help") and param.help:
                         wildcard_raw = re.search(r"(\w+) file[s]? \(([a-zA-Z ,\.]*)\)", param.help)
                         if wildcard_raw:
                             file_type, extensions_raw = wildcard_raw.groups()
@@ -703,7 +704,7 @@ class Guick(wx.Frame):
         # for param in self.ctx.command.commands.get(selected_command).params:
         # for param in self.ctx.command.params:
         for param in selected_command.params:
-            if not param.hidden:
+            if (hasattr(param, "hidden") and not param.hidden) or (not hasattr(param, "hidden")):
                 if errors.get(param.name):
                     self.text_error[param.name].SetLabel(str(errors[param.name]))
                     self.text_error[param.name].SetToolTip(str(errors[param.name]))
