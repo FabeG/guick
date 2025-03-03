@@ -480,47 +480,12 @@ class Guick(wx.Frame):
                 except KeyError:
                     prefilled_value = str(param.default) if param.default else ""
                 real_params += 1
-                if isinstance(param.type, click.Path):
-                    if param.type.file_okay:
-                        # If help text is something like:
-                        # Excel file (.xlsx, .csv)
-                        # Text file (.txt or .log)
-                        # Extract the file type and the extensions, so that the file
-                        # dialog can filter the files
-                        wildcards = "All files|*.*"
-                        if param.help:
-                            wildcard_raw = re.search(r"(\w+) file[s]? \(([a-zA-Z ,\.]*)\)", param.help)
-                            if wildcard_raw:
-                                file_type, extensions_raw = wildcard_raw.groups()
-                                extensions = re.findall(r"\.(\w+(?:\.\w+)?)", extensions_raw)
-                                extensions_text = ";".join([f"*.{ext}" for ext in extensions])
-                                wildcards = f"{file_type} files|{extensions_text}"
-                        if param.type.readable:
-                            mode = "read"
-                        elif param.type.writable:
-                            mode = "write"
-                        widgets = PathEntry(
-                            parent=panel,
-                            sizer=sizer,
-                            param=param,
-                            row=2 * idx_param,
-                            default_text=prefilled_value,
-                            callback=lambda evt, wildcards=wildcards, mode=mode: self.file_open(evt, wildcards, mode),
-                            longest_param_name=longest_param_name,
-                        )
-                        self.button[param.name] = widgets.button
-                    else:
-                        widgets = PathEntry(
-                            parent=panel,
-                            sizer=sizer,
-                            param=param,
-                            row=2 * idx_param,
-                            default_text=prefilled_value,
-                            callback=self.dir_open,
-                            longest_param_name=longest_param_name
-                        )
-                        self.button[param.name] = widgets.button
-                elif isinstance(param.type, click.File):
+                # File
+                if isinstance(param.type, click.File) or (isinstance(param.type, click.Path) and param.type.file_okay):
+                    if (hasattr(param.type, "readable") and param.type.readable) or (hasattr(param.type, "mode") and "r" in param.type.mode):
+                        mode = "read"
+                    elif (hasattr(param.type, "readable") and param.type.writable) or (hasattr(param.type, "mode") and "w" in param.type.mode):
+                        mode = "write"
                     # If help text is something like:
                     # Excel file (.xlsx, .csv)
                     # Text file (.txt or .log)
@@ -534,10 +499,6 @@ class Guick(wx.Frame):
                             extensions = re.findall(r"\.(\w+(?:\.\w+)?)", extensions_raw)
                             extensions_text = ";".join([f"*.{ext}" for ext in extensions])
                             wildcards = f"{file_type} files|{extensions_text}"
-                    if "r" in param.type.mode:
-                        mode = "read"
-                    elif "w" in param.type.mode:
-                        mode = "write"
                     widgets = PathEntry(
                         parent=panel,
                         sizer=sizer,
@@ -546,6 +507,18 @@ class Guick(wx.Frame):
                         default_text=prefilled_value,
                         callback=lambda evt, wildcards=wildcards, mode=mode: self.file_open(evt, wildcards, mode),
                         longest_param_name=longest_param_name,
+                    )
+                    self.button[param.name] = widgets.button
+                # Directory
+                elif (isinstance(param.type, click.Path) and param.type.dir_okay):
+                    widgets = PathEntry(
+                        parent=panel,
+                        sizer=sizer,
+                        param=param,
+                        row=2 * idx_param,
+                        default_text=prefilled_value,
+                        callback=self.dir_open,
+                        longest_param_name=longest_param_name
                     )
                     self.button[param.name] = widgets.button
                 # Choice
