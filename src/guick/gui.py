@@ -1,8 +1,6 @@
 import contextlib
-import math
-import functools
-import inspect
 import io
+import math
 import os
 import re
 import sys
@@ -17,11 +15,56 @@ import platformdirs
 import tomlkit
 import wx
 import wx.html
-
-import wx.lib.agw.labelbook as LB
-import wx.lib.buttons as buttons
 import wx.lib.scrolledpanel as scrolled
 from wx.lib.newevent import NewEvent
+
+# Regex pattern to match ANSI escape sequences
+ANSI_ESCAPE_PATTERN = re.compile(r'\x1b\[((?:\d+;)*\d+)m')
+
+# Mapping ANSI color codes to HTML colors
+# From https://devblogs.microsoft.com/commandline/updating-the-windows-console-colors/
+ANSI_COLORS = {
+    # Normal colors
+    30: wx.Colour(0, 0, 0),       # Black
+    31: wx.Colour(231, 72, 86),     # Red
+    32: wx.Colour(22, 198, 12),     # Green
+    33: wx.Colour(249, 241, 165),   # Yellow
+    34: wx.Colour(59, 120, 255),     # Blue
+    35: wx.Colour(180, 0, 158),   # Magenta
+    36: wx.Colour(97, 214, 214),   # Cyan
+    37: wx.Colour(242, 242, 242),  # White
+
+    # bright colors
+    90: wx.Colour(0, 0, 0),       # Black
+    91: wx.Colour(197, 15, 31),     # Red
+    92: wx.Colour(19, 161, 14),     # Green
+    93: wx.Colour(193, 156, 0),   # Yellow
+    94: wx.Colour(0, 55, 218),     # Blue
+    95: wx.Colour(136, 23, 152),   # Magenta
+    96: wx.Colour(58, 150, 221),   # Cyan
+    97: wx.Colour(204, 204, 204),  # White
+}
+ANSI_BACKGROUND_COLOR = {
+    # Normal colors
+    40: wx.Colour(0, 0, 0),       # Black
+    41: wx.Colour(231, 72, 86),     # Red
+    42: wx.Colour(22, 198, 12),     # Green
+    43: wx.Colour(249, 241, 165),   # Yellow
+    44: wx.Colour(59, 120, 255),     # Blue
+    45: wx.Colour(180, 0, 158),   # Magenta
+    46: wx.Colour(97, 214, 214),   # Cyan
+    47: wx.Colour(242, 242, 242),  # White
+
+    # bright colors
+    100: wx.Colour(0, 0, 0),       # Black
+    101: wx.Colour(197, 15, 31),     # Red
+    102: wx.Colour(19, 161, 14),     # Green
+    103: wx.Colour(193, 156, 0),   # Yellow
+    104: wx.Colour(0, 55, 218),     # Blue
+    105: wx.Colour(136, 23, 152),   # Magenta
+    106: wx.Colour(58, 150, 221),   # Cyan
+    107: wx.Colour(204, 204, 204),  # White
+}
 
 
 class MyFileDropTarget(wx.FileDropTarget):
@@ -34,23 +77,7 @@ class MyFileDropTarget(wx.FileDropTarget):
         self.obj.WriteText(filenames[0])
         return True
 
-# Regex pattern to match ANSI escape sequences
-ANSI_ESCAPE_PATTERN = re.compile(r'\x1b\[(\d+)m')
 
-# Mapping ANSI color codes to HTML colors
-ANSI_COLORS = {
-    30: wx.Colour(0, 0, 0),       # Black
-    31: wx.Colour(255, 0, 0),     # Red
-    32: wx.Colour(13, 161, 14),     # Green
-    33: wx.Colour(193, 156, 0),   # Yellow
-    34: wx.Colour(0, 55, 218),     # Blue
-    35: wx.Colour(136, 23, 152),   # Magenta
-    36: wx.Colour(58, 150, 221),   # Cyan
-    37: wx.Colour(255, 255, 255),  # White
-}
-ANSI_BACKGROUND_COLOR = {
-    41: wx.Colour(255, 0, 0),     # Red
-}
 
 
 class ANSITextCtrl(wx.TextCtrl):
@@ -59,32 +86,76 @@ class ANSITextCtrl(wx.TextCtrl):
         self.gauge = gauge
         self.gauge_text = gauge_text
         self.gauge_value = 0
+        # Default foreground and background colors
+        self.default_fg = wx.Colour(242, 242, 242)
+        self.default_bg = wx.Colour(12, 12, 12)
 
-    def append_ansi_text(self, text):
-        """Parses ANSI escape sequences and applies color formatting."""
-        parts = ANSI_ESCAPE_PATTERN.split(text)
-        # Default white text / black background
-        current_attr = wx.TextAttr(wx.Colour(255, 255, 255))
-        current_attr.SetBackgroundColour(wx.Colour(0, 0, 0))
-        for part in parts:
-            if part.isdigit():  # ANSI color code
-                code = int(part)
-                if code in ANSI_COLORS:
-                    current_attr.SetTextColour(ANSI_COLORS[code])
-                elif code in ANSI_BACKGROUND_COLOR:
-                    current_attr.SetBackgroundColour(ANSI_BACKGROUND_COLOR[code])
-                    current_attr.SetTextColour(wx.Colour(255, 255, 255))
-            else:  # Normal text
-                if "\r" in part:
-                    # Regex to extract the progress bar value from the tqdm output
-                    regex_tqdm = re.match(r"([\d\s]+)%\|.*\|(.*)", part)
-                    if regex_tqdm:
-                        self.gauge_value = int(regex_tqdm.group(1))
-                        self.gauge.SetValue(self.gauge_value)
-                        self.gauge_text.SetValue(regex_tqdm.group(2))
+    def append_ansi_text(self, message):
+        # Find all ANSI color code segments
+        segments = []
+        last_end = 0
+        current_color = wx.Colour(242, 242, 242)
+        current_fg = self.default_fg
+        current_bg = self.default_bg
+        underline = False
+        # Split the message by ANSI codes
+        for match in ANSI_ESCAPE_PATTERN.finditer(message):
+            print(match, file=sys.stderr)
+            # Add text before the ANSI code
+            if match.start() > last_end:
+                segments.append((message[last_end:match.start()], current_fg, current_bg, underline))
+
+            # Extract and interpret ANSI code parameters
+            params_str = match.group(1)
+            params = [int(p) for p in params_str.split(';') if p]
+
+            # Process ANSI parameters
+            if 0 in params:  # Reset all attributes
+                current_fg = self.default_fg
+                current_bg = self.default_bg
+                underline = False
+            else:
+                for param in params:
+                    print(param, file=sys.stderr)
+                    if param == 4:  # Underline
+                        underline = True
+                    elif param == 24:  # Turn off underline
+                        underline = False
+                    elif param in ANSI_COLORS:  # Foreground color
+                        current_fg = ANSI_COLORS[param]
+                    elif param in ANSI_BACKGROUND_COLOR:  # Background color
+                        current_bg = ANSI_BACKGROUND_COLOR[param]
+
+            last_end = match.end()
+
+        # Add remaining text
+        if last_end < len(message):
+            segments.append((message[last_end:], current_fg, current_bg, underline))
+
+        # Apply text and styles
+        for text, fg, bg, ul in segments:
+            if text:
+                # Create a font that matches the default one but with underline if needed
+                font = self.GetFont()
+                if ul:
+                    font.SetUnderlined(True)
                 else:
-                    self.SetDefaultStyle(current_attr)
-                    self.AppendText(part)
+                    font.SetUnderlined(False)
+                # Create text attribute with the font
+                style = wx.TextAttr(fg, bg, font)
+                self.SetDefaultStyle(style)
+                # Regex to extract the progress bar value from the tqdm output
+                regex_tqdm = re.match(r"\r([\d\s]+)%\|.*\|(.*)", text)
+                if regex_tqdm:
+                    self.gauge_value = int(regex_tqdm.group(1))
+                    self.gauge.SetValue(self.gauge_value)
+                    self.gauge_text.SetValue(regex_tqdm.group(2))
+                else:
+                    self.AppendText(text)
+        # Reset style at the end
+        default_font = self.GetFont()
+        default_font.SetUnderlined(False)
+        self.SetDefaultStyle(wx.TextAttr(self.default_fg, self.default_bg, default_font))
 
 
 class LogPanel(wx.Panel):
