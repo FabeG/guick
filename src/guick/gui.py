@@ -100,7 +100,6 @@ class ANSITextCtrl(wx.TextCtrl):
         underline = False
         # Split the message by ANSI codes
         for match in ANSI_ESCAPE_PATTERN.finditer(message):
-            print(match, file=sys.stderr)
             # Add text before the ANSI code
             if match.start() > last_end:
                 segments.append((message[last_end:match.start()], current_fg, current_bg, underline))
@@ -116,7 +115,6 @@ class ANSITextCtrl(wx.TextCtrl):
                 underline = False
             else:
                 for param in params:
-                    print(param, file=sys.stderr)
                     if param == 4:  # Underline
                         underline = True
                     elif param == 24:  # Turn off underline
@@ -462,7 +460,6 @@ class Guick(wx.Frame):
         if help_epilog:
             description += f"{help_epilog}"
         dlg = AboutDialog(self, "Help", head, description)
-        dlg.ShowModal()  # Show dialog modally
 
     def get_version(self):
         for param in self.ctx.command.params:
