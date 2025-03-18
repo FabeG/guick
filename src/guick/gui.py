@@ -21,50 +21,41 @@ from wx.lib.newevent import NewEvent
 # Regex pattern to match ANSI escape sequences
 ANSI_ESCAPE_PATTERN = re.compile(r'\x1b\[((?:\d+;)*\d+)m')
 
+
+# Windows Terminal Colors
 # Mapping ANSI color codes to HTML colors
 # From https://devblogs.microsoft.com/commandline/updating-the-windows-console-colors/
-ANSI_COLORS = {
-    # Normal colors
-    30: wx.Colour(0, 0, 0),       # Black
-    31: wx.Colour(231, 72, 86),     # Red
-    32: wx.Colour(22, 198, 12),     # Green
-    33: wx.Colour(249, 241, 165),   # Yellow
-    34: wx.Colour(59, 120, 255),     # Blue
-    35: wx.Colour(180, 0, 158),   # Magenta
-    36: wx.Colour(97, 214, 214),   # Cyan
-    37: wx.Colour(242, 242, 242),  # White
+class TermColors(Enum):
+    BLACK = (12, 12, 12)
+    RED = (197, 15, 31)
+    GREEN = (19, 161, 14)
+    YELLOW = (193, 156, 0)
+    BLUE = (0, 55, 218)
+    MAGENTA = (136, 23, 152)
+    CYAN = (58, 150, 221)
+    WHITE = (204, 204, 204)
+    BRIGHT_BLACK = (118, 118, 118)
+    BRIGHT_RED = (231, 72, 86)
+    BRIGHT_GREEN = (22, 198, 12)
+    BRIGHT_YELLOW = (249, 241, 165)
+    BRIGHT_BLUE = (59, 120, 255)
+    BRIGHT_MAGENTA = (180, 0, 158)
+    BRIGHT_CYAN = (97, 214, 214)
+    BRIGHT_WHITE = (242, 242, 242)
 
-    # bright colors
-    90: wx.Colour(0, 0, 0),       # Black
-    91: wx.Colour(197, 15, 31),     # Red
-    92: wx.Colour(19, 161, 14),     # Green
-    93: wx.Colour(193, 156, 0),   # Yellow
-    94: wx.Colour(0, 55, 218),     # Blue
-    95: wx.Colour(136, 23, 152),   # Magenta
-    96: wx.Colour(58, 150, 221),   # Cyan
-    97: wx.Colour(204, 204, 204),  # White
-}
-ANSI_BACKGROUND_COLOR = {
-    # Normal colors
-    40: wx.Colour(0, 0, 0),       # Black
-    41: wx.Colour(231, 72, 86),     # Red
-    42: wx.Colour(22, 198, 12),     # Green
-    43: wx.Colour(249, 241, 165),   # Yellow
-    44: wx.Colour(59, 120, 255),     # Blue
-    45: wx.Colour(180, 0, 158),   # Magenta
-    46: wx.Colour(97, 214, 214),   # Cyan
-    47: wx.Colour(242, 242, 242),  # White
 
-    # bright colors
-    100: wx.Colour(0, 0, 0),       # Black
-    101: wx.Colour(197, 15, 31),     # Red
-    102: wx.Colour(19, 161, 14),     # Green
-    103: wx.Colour(193, 156, 0),   # Yellow
-    104: wx.Colour(0, 55, 218),     # Blue
-    105: wx.Colour(136, 23, 152),   # Magenta
-    106: wx.Colour(58, 150, 221),   # Cyan
-    107: wx.Colour(204, 204, 204),  # White
-}
+class AnsiEscapeCodes(IntEnum):
+    ResetFormat = 0
+    BoldText = 1
+    UnderLinedText = 4
+    TextColorStart = 30
+    TextColorEnd = 37
+    TextBrightColorStart = 90
+    TextBrightColorEnd = 97
+    BackgroundColorStart = 40
+    BackgroundColorEnd = 47
+    BackgroundBrightColorStart = 100
+    BackgroundBrightColorEnd = 107
 
 
 class MyFileDropTarget(wx.FileDropTarget):
@@ -87,51 +78,58 @@ class ANSITextCtrl(wx.TextCtrl):
         self.gauge_text = gauge_text
         self.gauge_value = 0
         # Default foreground and background colors
-        self.default_fg = wx.Colour(242, 242, 242)
-        self.default_bg = wx.Colour(12, 12, 12)
+        self.default_fg = TermColors["WHITE"]
+        self.default_bg = TermColors["BLACK"]
 
     def append_ansi_text(self, message):
         # Find all ANSI color code segments
         segments = []
         last_end = 0
-        current_color = wx.Colour(242, 242, 242)
         current_fg = self.default_fg
         current_bg = self.default_bg
         underline = False
+        bold_fg = False
+        bold_bg = False
         # Split the message by ANSI codes
         for match in ANSI_ESCAPE_PATTERN.finditer(message):
             # Add text before the ANSI code
             if match.start() > last_end:
-                segments.append((message[last_end:match.start()], current_fg, current_bg, underline))
+                segments.append((message[last_end:match.start()], current_fg, current_bg, underline, bold_fg, bold_bg))
 
             # Extract and interpret ANSI code parameters
             params_str = match.group(1)
             params = [int(p) for p in params_str.split(';') if p]
-
-            # Process ANSI parameters
-            if 0 in params:  # Reset all attributes
-                current_fg = self.default_fg
-                current_bg = self.default_bg
-                underline = False
-            else:
-                for param in params:
-                    if param == 4:  # Underline
-                        underline = True
-                    elif param == 24:  # Turn off underline
-                        underline = False
-                    elif param in ANSI_COLORS:  # Foreground color
-                        current_fg = ANSI_COLORS[param]
-                    elif param in ANSI_BACKGROUND_COLOR:  # Background color
-                        current_bg = ANSI_BACKGROUND_COLOR[param]
+            for param in params:
+                # Process ANSI parameters
+                if param == AnsiEscapeCodes.ResetFormat:
+                    current_fg = self.default_fg
+                    current_bg = self.default_bg
+                    underline = False
+                    bold_fg = False
+                    bold_bg = False
+                elif param == AnsiEscapeCodes.UnderLinedText:
+                    underline = True
+                elif param == AnsiEscapeCodes.BoldText:
+                    bold_fg = True
+                elif AnsiEscapeCodes.BackgroundColorStart <= param <= AnsiEscapeCodes.BackgroundColorEnd:
+                    current_bg = ANSI_COLORS[param - AnsiEscapeCodes.BackgroundColorStart]
+                elif AnsiEscapeCodes.TextColorStart <= param <= AnsiEscapeCodes.TextColorEnd:
+                    current_fg = ANSI_COLORS[param - AnsiEscapeCodes.TextColorStart]
+                elif AnsiEscapeCodes.BackgroundBrightColorStart <= param <= AnsiEscapeCodes.BackgroundBrightColorEnd:
+                    current_bg = ANSI_COLORS[param - AnsiEscapeCodes.BackgroundBrightColorStart]
+                    bold_bg = True
+                elif AnsiEscapeCodes.TextBrightColorStart <= param <= AnsiEscapeCodes.TextBrightColorEnd:
+                    current_fg = ANSI_COLORS[param - AnsiEscapeCodes.TextBrightColorStart]
+                    bold_fg = True
 
             last_end = match.end()
 
         # Add remaining text
         if last_end < len(message):
-            segments.append((message[last_end:], current_fg, current_bg, underline))
+            segments.append((message[last_end:], current_fg, current_bg, underline, bold_fg, bold_bg))
 
         # Apply text and styles
-        for text, fg, bg, ul in segments:
+        for text, fg, bg, ul, bold_fg, bold_bg in segments:
             if text:
                 # Create a font that matches the default one but with underline if needed
                 font = self.GetFont()
@@ -140,7 +138,16 @@ class ANSITextCtrl(wx.TextCtrl):
                 else:
                     font.SetUnderlined(False)
                 # Create text attribute with the font
-                style = wx.TextAttr(fg, bg, font)
+                if bold_fg:
+                    color_fg = TermColors["BRIGHT_" + fg.name]
+                else:
+                    color_fg = TermColors[fg.name]
+                if bold_bg:
+                    color_bg = TermColors["BRIGHT_" + bg.name]
+                else:
+                    color_bg = TermColors[bg.name]
+
+                style = wx.TextAttr(wx.Colour(*color_fg.value), wx.Colour(*color_bg.value), font)
                 self.SetDefaultStyle(style)
                 # Regex to extract the progress bar value from the tqdm output
                 regex_tqdm = re.match(r"\r([\d\s]+)%\|.*\|(.*)", text)
@@ -153,7 +160,7 @@ class ANSITextCtrl(wx.TextCtrl):
         # Reset style at the end
         default_font = self.GetFont()
         default_font.SetUnderlined(False)
-        self.SetDefaultStyle(wx.TextAttr(self.default_fg, self.default_bg, default_font))
+        self.SetDefaultStyle(wx.TextAttr(wx.Colour(*self.default_fg.value), wx.Colour(*self.default_bg.value), default_font))
 
 
 class LogPanel(wx.Panel):
@@ -183,7 +190,18 @@ class LogPanel(wx.Panel):
         box_sizer.SetSizeHints(self)
         self.Layout()
 
-        self.log_ctrl.SetBackgroundColour(wx.Colour(0, 0, 0))
+        self.log_ctrl.SetBackgroundColour(wx.Colour(*TermColors.BLACK.value))
+
+
+class MyFileDropTarget(wx.FileDropTarget):
+    def __init__(self, obj):
+        wx.FileDropTarget.__init__(self)
+        self.obj = obj
+
+    def OnDropFiles(self, x, y, filenames):
+        self.obj.SetValue("")
+        self.obj.WriteText(filenames[0])
+        return True
 
 
 class AboutDialog(wx.Frame):
