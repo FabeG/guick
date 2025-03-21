@@ -1,4 +1,5 @@
 import contextlib
+import datetime
 import io
 import math
 import os
@@ -57,6 +58,16 @@ class AnsiEscapeCodes(IntEnum):
     BackgroundBrightColorStart = 100
     BackgroundBrightColorEnd = 107
 
+ANSI_COLORS = {
+    0: TermColors["BLACK"],
+    1: TermColors["RED"],
+    2: TermColors["GREEN"],
+    3: TermColors["YELLOW"],
+    4: TermColors["BLUE"],
+    5: TermColors["MAGENTA"],
+    6: TermColors["CYAN"],
+    7: TermColors["WHITE"],
+}
 
 class MyFileDropTarget(wx.FileDropTarget):
     def __init__(self, obj):
@@ -386,10 +397,20 @@ class PathEntry(NormalEntry):
         self.sizer.Add(self.button, (self.row, 2))
 
 
-    def convert(self, value, param, ctx):
-        if not value.endswith(".csv"):
-            self.fail("File should be a csv file", param, ctx)
-        return value
+class DateTimeEntry(NormalEntry):
+    def __init__(self, **kwargs):
+        self.button = None
+        self.param = kwargs.get("param")
+        print(dir(self.param))
+        print(self.param.type.formats)
+        self.callback = kwargs.get("callback")
+        super().__init__(**kwargs)
+
+    def build_button(self):
+        self.button = wx.Button(self.parent, -1, "Browse")
+        self.button.Bind(
+            wx.EVT_BUTTON, self.callback
+        )
 
 
 class Guick(wx.Frame):
@@ -638,6 +659,27 @@ class Guick(wx.Frame):
                         min_value=param.type.min,
                         max_value=param.type.max
                     )
+                elif isinstance(param.type, click.types.DateTime):
+                    # Identify required input types
+                    show_date = any([bool(re.search(r"%[YymdUuVWjABbax]", format_str)) for format_str in param.type.formats])
+                    show_time = any([bool(re.search(r"%[HIpMSfzZX]", format_str)) for format_str in param.type.formats])
+                    if show_time and not show_date:
+                        mode = "time"
+                    elif show_date and not show_time:
+                        mode = "date"
+                    else:
+                        mode = "datetime"
+                    print(param.name, mode)
+                    widgets = DateTimeEntry(
+                        parent=panel,
+                        sizer=sizer,
+                        param=param,
+                        row=2 * idx_param,
+                        longest_param_name=longest_param_name,
+                        default_text=prefilled_value,
+                        callback=lambda evt, param=param, mode=mode: self.date_time_picker(evt, param, mode),
+                        mode=mode,
+                    )
                 else:
                     widgets = NormalEntry(
                         parent=panel,
@@ -680,6 +722,47 @@ class Guick(wx.Frame):
 
         panel.SetSizerAndFit(main_boxsizer)
         return panel
+
+    def date_time_picker(self, event, param, mode="datetime"):
+        mouse_pos = wx.GetMousePosition()
+        if mode == "date":
+            title = "Select Date"
+        elif mode == "time":
+            title = "Select Time"
+        elif mode == "datetime":
+            title = "Select Date & Time"
+        dlg = wx.Dialog(self, title=title)
+        dlg.Move(mouse_pos)
+        vbox = wx.BoxSizer(wx.VERTICAL)
+        hbox = wx.BoxSizer(wx.HORIZONTAL)
+
+        if mode in {"date", "datetime"}:
+            self.date_picker = wx.adv.DatePickerCtrl(dlg, style=wx.adv.DP_DROPDOWN)
+            hbox.Add(self.date_picker, flag=wx.ALL | wx.CENTER, border=5)
+        if mode in {"time", "datetime"}:
+            self.time_picker = wx.adv.TimePickerCtrl(dlg)
+            hbox.Add(self.time_picker, flag=wx.ALL | wx.CENTER, border=5)
+
+        btn_sizer = wx.StdDialogButtonSizer()
+        ok_btn = wx.Button(dlg, wx.ID_OK, label="OK")
+        cancel_btn = wx.Button(dlg, wx.ID_CANCEL, label="Cancel")
+        btn_sizer.AddButton(ok_btn)
+        btn_sizer.AddButton(cancel_btn)
+        btn_sizer.Realize()
+        vbox.Add(hbox, flag=wx.ALL | wx.CENTER, border=5)
+        vbox.Add(btn_sizer, flag=wx.ALL | wx.CENTER, border=5)
+
+        dlg.SetSizerAndFit(vbox)
+        if dlg.ShowModal() == wx.ID_OK:
+            # This returns a Python list of files that were selected.
+            dlg.Destroy()
+            if mode == "date":
+                self.entry[param.name].SetValue(self.date_picker.GetValue().Format(param.type.formats[0]))
+            elif mode == "time":
+                self.entry[param.name].SetValue(self.time_picker.GetValue().Format(param.type.formats[0]))
+            else:
+                self.entry[param.name].SetValue(datetime.datetime.fromisoformat(self.date_picker.GetValue().FormatISODate() + " " + self.time_picker.GetValue().FormatISOTime()).strftime(param.type.formats[0]))
+
 
     def dir_open(self, event):
         dlg = wx.DirDialog(
