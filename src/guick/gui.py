@@ -58,6 +58,7 @@ class AnsiEscapeCodes(IntEnum):
     BackgroundBrightColorStart = 100
     BackgroundBrightColorEnd = 107
 
+
 ANSI_COLORS = {
     0: TermColors["BLACK"],
     1: TermColors["RED"],
@@ -69,24 +70,15 @@ ANSI_COLORS = {
     7: TermColors["WHITE"],
 }
 
-class MyFileDropTarget(wx.FileDropTarget):
-    def __init__(self, obj):
-        wx.FileDropTarget.__init__(self)
-        self.obj = obj
-
-    def OnDropFiles(self, x, y, filenames):
-        self.obj.SetValue("")
-        self.obj.WriteText(filenames[0])
-        return True
 
 
 
 
 class ANSITextCtrl(wx.TextCtrl):
-    def __init__(self, parent, style, size, gauge, gauge_text, *args, **kwargs):
-        super().__init__(parent, style=wx.TE_MULTILINE | wx.TE_RICH2, size=size)
-        self.gauge = gauge
-        self.gauge_text = gauge_text
+    def __init__(self, parent, size, *args, **kwargs):
+        super().__init__(parent, style=wx.TE_MULTILINE | wx.TE_RICH2 | wx.TE_READONLY, size=size)
+        self.gauge = parent.gauge
+        self.gauge_text = parent.gauge_text
         self.gauge_value = 0
         # Default foreground and background colors
         self.default_fg = TermColors["WHITE"]
@@ -177,13 +169,13 @@ class ANSITextCtrl(wx.TextCtrl):
 class LogPanel(wx.Panel):
     """A panel containing a shared log in a StaticBox."""
     def __init__(self, parent):
-        super().__init__(parent)
+        super().__init__(parent, size=(900, -1))
 
         sb = wx.StaticBox(self, label="Log")
         font = wx.Font(wx.FontInfo(10).Bold())
         sb.SetFont(font)
         box_sizer = wx.StaticBoxSizer(sb, wx.VERTICAL)
-        # Create the log
+        # Create the progessbar in case of tqdm
         self.gauge = wx.Gauge(self, -1, 100, size=(-1, 10))
         font = get_best_monospace_font()
         self.gauge_text = wx.TextCtrl(self, -1, "", size=(400, -1), style=wx.TE_READONLY)
@@ -191,17 +183,17 @@ class LogPanel(wx.Panel):
         hbox = wx.BoxSizer(wx.HORIZONTAL)
         hbox.Add(self.gauge, 1, wx.EXPAND | wx.ALL, 5)
         hbox.Add(self.gauge_text, 0, wx.EXPAND | wx.ALL, 5)
-        self.log_ctrl = ANSITextCtrl(self, style=wx.TE_MULTILINE | wx.TE_READONLY | wx.HSCROLL, size=(-1, 200), gauge=self.gauge, gauge_text=self.gauge_text)
+        # Create the log
+        self.log_ctrl = ANSITextCtrl(self, size=(900, 200))
         self.log_ctrl.SetMinSize((100, 200))
         self.log_ctrl.SetFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, faceName=font))
+        self.log_ctrl.SetBackgroundColour(wx.Colour(*TermColors.BLACK.value))
 
         box_sizer.Add(self.log_ctrl, 1, wx.EXPAND | wx.ALL, 5)
         box_sizer.Add(hbox, 0, wx.EXPAND | wx.ALL, 5)
         self.SetSizer(box_sizer)
         box_sizer.SetSizeHints(self)
         self.Layout()
-
-        self.log_ctrl.SetBackgroundColour(wx.Colour(*TermColors.BLACK.value))
 
 
 class MyFileDropTarget(wx.FileDropTarget):
@@ -221,13 +213,13 @@ class AboutDialog(wx.Frame):
 
         # Create a panel to hold the text control and button
         panel = wx.Panel(self)
-        
+
         # Create a sizer for the panel to manage layout
         sizer = wx.BoxSizer(wx.VERTICAL)
 
         # Create the TextCtrl (HTML content)
         self.html = wx.TextCtrl(panel, size=(600, 200), style=wx.TE_AUTO_URL | wx.TE_MULTILINE | wx.TE_READONLY)
-        
+
         if font == "monospace":
             font = get_best_monospace_font()
             self.html.SetFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, faceName=font))
@@ -236,7 +228,7 @@ class AboutDialog(wx.Frame):
         self.html.WriteText(description)
         # Ensure the text starts at the beginning
         self.html.SetInsertionPoint(0)
-        
+
         # Add TextCtrl to sizer
         sizer.Add(self.html, 1, wx.EXPAND | wx.ALL, 10)
 
@@ -257,11 +249,10 @@ class AboutDialog(wx.Frame):
         # Show the frame
         self.Show()
 
-
     def OnLinkClicked(self, event):
         if event.MouseEvent.LeftUp():
             url = self.html.GetRange(event.GetURLStart(), event.GetURLEnd())
-            webbrowser.open(url)  # Open in default browser
+            webbrowser.open(url)
         event.Skip()
 
     def OnClose(self, event):
@@ -294,29 +285,31 @@ class RedirectText:
 
 
 class NormalEntry:
+    longest_param_name = ""
+
+    @classmethod
+    def init_class(cls, param_name):
+        cls.longest_param_name = param_name
+
     def __init__(self, **kwargs):
         self.param = kwargs["param"]
         self.parent = kwargs["parent"]
         self.entry = None
         self.text_error = None
         self.default_text = kwargs.get("default_text")
-        self.longest_param_name = kwargs.get("longest_param_name", "")
-        self.sizer = kwargs["sizer"]
         self.min_size = (100, -1)
-        self.row = kwargs["row"]
         self.build_label()
         self.build_entry()
         self.build_button()
         self.build_error()
 
     def build_label(self):
-        static_text = wx.StaticText(self.parent, -1, self.longest_param_name)
-        size = static_text.GetSize()
-        static_text.SetMinSize(size)
-        static_text.SetLabel(self.param.name)
+        self.static_text = wx.StaticText(self.parent, -1, NormalEntry.longest_param_name)
+        size = self.static_text.GetSize()
+        self.static_text.SetMinSize(size)
+        self.static_text.SetLabel(self.param.name)
         if hasattr(self.param, "help"):
-            static_text.SetToolTip(self.param.help)
-        self.sizer.Add(static_text, (self.row, 0))
+            self.static_text.SetToolTip(self.param.help)
 
     def build_entry(self):
         # Password
@@ -330,14 +323,9 @@ class NormalEntry:
         self.entry.SetMinSize(self.min_size)
         if self.default_text:
             self.entry.SetValue(self.default_text)
-        self.sizer.Add(self.entry, flag=wx.EXPAND, pos=(self.row, 1))
 
     def build_button(self):
-        # Create fake button to know the size of the spacer
-        button = wx.Button(self.parent, -1, "Browse")
-        size = button.GetSize()
-        button.Destroy()
-        self.sizer.Add(size, (self.row, 2))
+        pass
 
     def build_error(self):
         self.text_error = wx.StaticText(self.parent, -1, "", size=(500, -1))
@@ -345,7 +333,6 @@ class NormalEntry:
         self.text_error.SetMinSize(self.min_size)
         self.text_error.SetFont(font)
         self.text_error.SetForegroundColour((255, 0, 0))
-        self.sizer.Add(self.text_error, flag=wx.EXPAND, pos=(self.row + 1, 1))
 
 
 class ChoiceEntry(NormalEntry):
@@ -356,7 +343,6 @@ class ChoiceEntry(NormalEntry):
         self.entry.SetMinSize(self.min_size)
         if self.default_text:
             self.entry.SetValue(self.default_text)
-        self.sizer.Add(self.entry, flag=wx.EXPAND, pos=(self.row, 1))
 
 
 class BoolEntry(NormalEntry):
@@ -365,7 +351,6 @@ class BoolEntry(NormalEntry):
         self.entry.SetMinSize(self.min_size)
         if self.default_text:
             self.entry.SetValue(bool(self.default_text))
-        self.sizer.Add(self.entry, flag=wx.EXPAND, pos=(self.row, 1))
 
 
 class SliderEntry(NormalEntry):
@@ -378,12 +363,10 @@ class SliderEntry(NormalEntry):
         self.entry.SetMinSize(self.min_size)
 
         self.entry.SetTickFreq(int(math.pow(10, math.ceil(math.log10(self.param.type.max - self.param.type.min) - 1))))
-        self.sizer.Add(self.entry, flag=wx.EXPAND, pos=(self.row, 1))
 
 
 class PathEntry(NormalEntry):
     def __init__(self, **kwargs):
-        self.button = None
         self.callback = kwargs.get("callback")
         super().__init__(**kwargs)
         self.file_drop_target = MyFileDropTarget(self.entry)
@@ -394,7 +377,6 @@ class PathEntry(NormalEntry):
         self.button.Bind(
             wx.EVT_BUTTON, self.callback
         )
-        self.sizer.Add(self.button, (self.row, 2))
 
 
 class DateTimeEntry(NormalEntry):
@@ -413,12 +395,239 @@ class DateTimeEntry(NormalEntry):
         )
 
 
+class ParameterSection:
+    def __init__(self, config, command_name, panel, label, params, main_boxsizer):
+        self.params = params
+        self.controls = {}  # param_name -> wx control
+        self.boxsizer = None
+        self.gbs = None
+        self.panel = panel
+        self.command_name = command_name
+        self.config = config
+        self.entry = {}
+        self.text_error = {}
+
+        if not params:
+            return  # nothing to render
+
+        # StaticBox with bold font
+        sb = wx.StaticBox(panel, label=label)
+        sb.SetFont(wx.Font(wx.FontInfo(10).Bold()))
+
+        # BoxSizer wrapping the StaticBox
+        self.boxsizer = wx.StaticBoxSizer(sb, wx.VERTICAL)
+        main_boxsizer.Add(
+            self.boxsizer,
+            flag=wx.EXPAND | wx.TOP | wx.LEFT | wx.RIGHT,
+            border=10
+        )
+
+        # GridBagSizer for parameter controls
+        self.gbs = wx.GridBagSizer(vgap=1, hgap=5)
+        self.boxsizer.Add(self.gbs, flag=wx.EXPAND | wx.ALL, border=5)
+
+        # Build UI for each parameter
+        self._populate()
+        self.gbs.AddGrowableCol(1)
+
+    def _populate(self):
+        idx_param = -1
+        for param in self.params:
+            if not param.is_eager and ((hasattr(param, "hidden") and not param.hidden) or (not hasattr(param, "hidden"))):
+                idx_param += 1
+                try:
+                    prefilled_value = self.config[self.command_name][param.name]
+                except (TypeError, KeyError):
+                    prefilled_value = str(param.default) if param.default else ""
+
+                # File
+                if isinstance(param.type, click.File) or (isinstance(param.type, click.Path) and param.type.file_okay):
+                    # Read mode
+                    if (hasattr(param.type, "readable") and param.type.readable) or (hasattr(param.type, "mode") and "r" in param.type.mode):
+                        mode = "read"
+                    # Write mode
+                    elif (hasattr(param.type, "writable") and param.type.writable) or (hasattr(param.type, "mode") and "w" in param.type.mode):
+                        mode = "write"
+                    # If help text is something like:
+                    # Excel file (.xlsx, .csv)
+                    # Text file (.txt or .log)
+                    # Extract the file type and the extensions, so that the file
+                    # dialog can filter the files
+                    wildcards = "All files|*.*"
+                    if hasattr(param, "help") and param.help:
+                        wildcard_raw = re.search(r"(\w+) file[s]? \(([a-zA-Z ,\.]*)\)", param.help)
+                        if wildcard_raw:
+                            file_type, extensions_raw = wildcard_raw.groups()
+                            extensions = re.findall(r"\.(\w+(?:\.\w+)?)", extensions_raw)
+                            extensions_text = ";".join([f"*.{ext}" for ext in extensions])
+                            wildcards = f"{file_type} files|{extensions_text}"
+                    widgets = PathEntry(
+                        parent=self.panel,
+                        param=param,
+                        default_text=prefilled_value,
+                        callback=lambda evt, panel=self.panel, param=param.name, wildcards=wildcards, mode=mode: self.file_open(evt, panel, param, wildcards, mode),
+                    )
+                    # self.button[param.name] = widgets.button
+
+                # Directory
+                elif (isinstance(param.type, click.Path) and param.type.dir_okay):
+                    widgets = PathEntry(
+                        parent=self.panel,
+                        param=param,
+                        default_text=prefilled_value,
+                        callback=lambda evt, panel=self.panel, param=param.name: self.dir_open(evt, panel, param),
+                    )
+                    # self.button[param.name] = widgets.button
+
+                # Choice
+                elif isinstance(param.type, click.Choice):
+                    widgets = ChoiceEntry(
+                        parent=self.panel,
+                        param=param,
+                        default_text=prefilled_value
+                    )
+
+                # bool
+                elif isinstance(param.type, click.types.BoolParamType):
+                    widgets = BoolEntry(
+                        parent=self.panel,
+                        param=param,
+                        default_text=prefilled_value
+                    )
+
+                # IntRange
+                elif isinstance(param.type, click.types.IntRange):
+                    widgets = SliderEntry(
+                        parent=self.panel,
+                        param=param,
+                        default_text=prefilled_value,
+                        min_value=param.type.min,
+                        max_value=param.type.max
+                    )
+
+                # Date
+                elif isinstance(param.type, click.types.DateTime):
+                    # Identify required input types
+                    show_date = any([bool(re.search(r"%[YymdUuVWjABbax]", format_str)) for format_str in param.type.formats])
+                    show_time = any([bool(re.search(r"%[HIpMSfzZX]", format_str)) for format_str in param.type.formats])
+                    if show_time and not show_date:
+                        mode = "time"
+                    elif show_date and not show_time:
+                        mode = "date"
+                    else:
+                        mode = "datetime"
+                    print(param.name, mode)
+                    widgets = DateTimeEntry(
+                        parent=self.panel,
+                        param=param,
+                        default_text=prefilled_value,
+                        callback=lambda evt, param=param, mode=mode: self.date_time_picker(evt, param, mode),
+                        mode=mode,
+                    )
+                else:
+                    widgets = NormalEntry(
+                        parent=self.panel,
+                        param=param,
+                        default_text=prefilled_value
+                    )
+                self.entry[param.name] = widgets.entry
+                self.text_error[param.name] = widgets.text_error
+                self.gbs.Add(widgets.static_text, (2 * idx_param, 0))
+                self.gbs.Add(widgets.entry, flag=wx.EXPAND, pos=(2 * idx_param, 1))
+                if hasattr(widgets, "button"):
+                    self.gbs.Add(widgets.button, (2 * idx_param, 2))
+                self.gbs.Add(widgets.text_error, flag=wx.EXPAND, pos=(2 * idx_param + 1, 1))
+        # line = wx.StaticLine(p, -1, size=(20,-1), style=wx.LI_HORIZONTAL)
+        # gbs.Add(line, (i+1, 0), (i+1, 3), wx.EXPAND|wx.RIGHT|wx.TOP, 5)
+
+        # self.gbs.AddGrowableCol(1)
+        # self.boxsizer.Add(self.gbs, 1, wx.EXPAND | wx.ALL, 10)
+        # self.boxsizer.SetSizeHints(self.panel)
+
+        # return self.panel
+
+    def date_time_picker(self, event, param, mode="datetime"):
+        mouse_pos = wx.GetMousePosition()
+        if mode == "date":
+            title = "Select Date"
+        elif mode == "time":
+            title = "Select Time"
+        elif mode == "datetime":
+            title = "Select Date & Time"
+        dlg = wx.Dialog(self, title=title)
+        dlg.Move(mouse_pos)
+        vbox = wx.BoxSizer(wx.VERTICAL)
+        hbox = wx.BoxSizer(wx.HORIZONTAL)
+
+        if mode in {"date", "datetime"}:
+            self.date_picker = wx.adv.DatePickerCtrl(dlg, style=wx.adv.DP_DROPDOWN)
+            hbox.Add(self.date_picker, flag=wx.ALL | wx.CENTER, border=5)
+        if mode in {"time", "datetime"}:
+            self.time_picker = wx.adv.TimePickerCtrl(dlg)
+            hbox.Add(self.time_picker, flag=wx.ALL | wx.CENTER, border=5)
+
+        btn_sizer = wx.StdDialogButtonSizer()
+        ok_btn = wx.Button(dlg, wx.ID_OK, label="OK")
+        cancel_btn = wx.Button(dlg, wx.ID_CANCEL, label="Cancel")
+        btn_sizer.AddButton(ok_btn)
+        btn_sizer.AddButton(cancel_btn)
+        btn_sizer.Realize()
+        vbox.Add(hbox, flag=wx.ALL | wx.CENTER, border=5)
+        vbox.Add(btn_sizer, flag=wx.ALL | wx.CENTER, border=5)
+
+        dlg.SetSizerAndFit(vbox)
+        if dlg.ShowModal() == wx.ID_OK:
+            # This returns a Python list of files that were selected.
+            dlg.Destroy()
+            if mode == "date":
+                self.entry[param.name].SetValue(self.date_picker.GetValue().Format(param.type.formats[0]))
+            elif mode == "time":
+                self.entry[param.name].SetValue(self.time_picker.GetValue().Format(param.type.formats[0]))
+            else:
+                self.entry[param.name].SetValue(datetime.datetime.fromisoformat(self.date_picker.GetValue().FormatISODate() + " " + self.time_picker.GetValue().FormatISOTime()).strftime(param.type.formats[0]))
+
+    def dir_open(self, event, panel, param):
+        dlg = wx.DirDialog(
+            panel, message="Choose Directory",
+            defaultPath=os.getcwd(),
+            style=wx.RESIZE_BORDER
+        )
+        if dlg.ShowModal() == wx.ID_OK:
+            path = dlg.GetPath()
+            dlg.Destroy()
+            self.entry[param].SetValue(path)
+
+    def file_open(self, event, panel, param, wildcards="All files|*.*", mode="read"):
+        path = self.entry[param].GetValue()
+        last_folder = Path(path).parent if path != "" else os.getcwd()
+        if mode == "read":
+            style = wx.FD_OPEN | wx.FD_CHANGE_DIR | wx.FD_FILE_MUST_EXIST
+        else:
+            style = wx.FD_SAVE | wx.FD_CHANGE_DIR | wx.FD_OVERWRITE_PROMPT
+        dlg = wx.FileDialog(
+            panel,
+            message="Choose a file",
+            defaultDir=str(last_folder),
+            defaultFile="",
+            wildcard=wildcards,
+            style=style,
+        )
+
+        # Show the dialog and retrieve the user response. If it is the OK response,
+        # process the data.
+        if dlg.ShowModal() == wx.ID_OK:
+            # This returns a Python list of files that were selected.
+            path = dlg.GetPath()
+            dlg.Destroy()
+            self.entry[param].SetValue(path)
+
+
 class Guick(wx.Frame):
     def __init__(self, ctx):
-        wx.Frame.__init__(self, None, -1, ctx.command.name)
+        wx.Frame.__init__(self, None, -1, ctx.command.name, size=(900, -1))
         self.ctx = ctx
         self.entry = {}
-        self.button = {}
+        # self.button = {}
         self.text_error = {}
 
         # Create Help menu
@@ -452,6 +661,7 @@ class Guick(wx.Frame):
         self.panel = wx.Panel(
             self,
             -1,
+            size=(900, -1),
             style=wx.DEFAULT_FRAME_STYLE | wx.CLIP_CHILDREN | wx.FULL_REPAINT_ON_RESIZE,
         )
         vbox = wx.BoxSizer(wx.VERTICAL)
@@ -535,165 +745,30 @@ class Guick(wx.Frame):
             script_history = tomlkit.table()
             config.add(command.name, script_history)
 
-        # Check if we have optional / required options
-        required_param = []
-        optional_param = []
-        longest_param_name = ""
-        for param in command.params:
-            if len(param.name) > len(longest_param_name):
-                longest_param_name = param.name
-            if param.required:
-                required_param.append(param)
-            else:
-                optional_param.append(param)
-        # main_sb = wx.StaticBox(self.panel, label="Main Static box")
         self.Bind(wx.EVT_CLOSE, self.on_close_button)
+
+        # Set the longest parameter name for alignment
+        longest_param_name = max([param.name for param in command.params], key=len)
+        NormalEntry.init_class(longest_param_name)
+
         main_boxsizer = wx.BoxSizer(wx.VERTICAL)
-
-        if required_param:
-            sb = wx.StaticBox(panel, label="Required Parameters")
-            font = wx.Font(wx.FontInfo(10).Bold())
-
-            # set font for the statictext
-            sb.SetFont(font)
-            self.required_boxsizer = wx.StaticBoxSizer(sb, wx.VERTICAL)
-            main_boxsizer.Add(self.required_boxsizer,
-                flag=wx.EXPAND | wx.TOP | wx.LEFT | wx.RIGHT, border=10)
-            self.required_gbs = wx.GridBagSizer(vgap=1, hgap=5)
-        if optional_param:
-            font = wx.Font(wx.FontInfo(10).Bold())
-            sb = wx.StaticBox(panel, label="Optional Parameters")
-            sb.SetFont(font)
-            self.optional_boxsizer = wx.StaticBoxSizer(sb, wx.VERTICAL)
-            main_boxsizer.Add(self.optional_boxsizer,
-                flag=wx.EXPAND | wx.TOP | wx.LEFT | wx.RIGHT, border=10)
-            self.optional_gbs = wx.GridBagSizer(vgap=1, hgap=5)
-
-        real_params = 0
-        idx_required_param = -1
-        idx_optional_param = -1
-        for param in command.params:
-            if not param.is_eager and ((hasattr(param, "hidden") and not param.hidden) or (not hasattr(param, "hidden"))):
-                if param.required:
-                    sizer = self.required_gbs
-                    idx_required_param += 1
-                    idx_param = idx_required_param
-                else:
-                    sizer = self.optional_gbs
-                    idx_optional_param += 1
-                    idx_param = idx_optional_param
-                try:
-                    prefilled_value = config[command.name][param.name]
-                except KeyError:
-                    prefilled_value = str(param.default) if param.default else ""
-                real_params += 1
-                # File
-                if isinstance(param.type, click.File) or (isinstance(param.type, click.Path) and param.type.file_okay):
-                    if (hasattr(param.type, "readable") and param.type.readable) or (hasattr(param.type, "mode") and "r" in param.type.mode):
-                        mode = "read"
-                    elif (hasattr(param.type, "readable") and param.type.writable) or (hasattr(param.type, "mode") and "w" in param.type.mode):
-                        mode = "write"
-                    # If help text is something like:
-                    # Excel file (.xlsx, .csv)
-                    # Text file (.txt or .log)
-                    # Extract the file type and the extensions, so that the file
-                    # dialog can filter the files
-                    wildcards = "All files|*.*"
-                    if hasattr(param, "help") and param.help:
-                        wildcard_raw = re.search(r"(\w+) file[s]? \(([a-zA-Z ,\.]*)\)", param.help)
-                        if wildcard_raw:
-                            file_type, extensions_raw = wildcard_raw.groups()
-                            extensions = re.findall(r"\.(\w+(?:\.\w+)?)", extensions_raw)
-                            extensions_text = ";".join([f"*.{ext}" for ext in extensions])
-                            wildcards = f"{file_type} files|{extensions_text}"
-                    widgets = PathEntry(
-                        parent=panel,
-                        sizer=sizer,
-                        param=param,
-                        row=2 * idx_param,
-                        default_text=prefilled_value,
-                        callback=lambda evt, wildcards=wildcards, mode=mode: self.file_open(evt, wildcards, mode),
-                        longest_param_name=longest_param_name,
-                    )
-                    self.button[param.name] = widgets.button
-                # Directory
-                elif (isinstance(param.type, click.Path) and param.type.dir_okay):
-                    widgets = PathEntry(
-                        parent=panel,
-                        sizer=sizer,
-                        param=param,
-                        row=2 * idx_param,
-                        default_text=prefilled_value,
-                        callback=self.dir_open,
-                        longest_param_name=longest_param_name
-                    )
-                    self.button[param.name] = widgets.button
-                # Choice
-                elif isinstance(param.type, click.Choice):
-                    widgets = ChoiceEntry(
-                        parent=panel,
-                        sizer=sizer,
-                        param=param,
-                        row=2 * idx_param,
-                        longest_param_name=longest_param_name,
-                        default_text=prefilled_value
-                    )
-                # bool
-                elif isinstance(param.type, click.types.BoolParamType):
-                    widgets = BoolEntry(
-                        parent=panel,
-                        sizer=sizer,
-                        param=param,
-                        row=2 * idx_param,
-                        longest_param_name=longest_param_name,
-                        default_text=prefilled_value
-                    )
-                elif isinstance(param.type, click.types.IntRange):
-                    widgets = SliderEntry(
-                        parent=panel,
-                        sizer=sizer,
-                        param=param,
-                        row=2 * idx_param,
-                        longest_param_name=longest_param_name,
-                        default_text=prefilled_value,
-                        min_value=param.type.min,
-                        max_value=param.type.max
-                    )
-                elif isinstance(param.type, click.types.DateTime):
-                    # Identify required input types
-                    show_date = any([bool(re.search(r"%[YymdUuVWjABbax]", format_str)) for format_str in param.type.formats])
-                    show_time = any([bool(re.search(r"%[HIpMSfzZX]", format_str)) for format_str in param.type.formats])
-                    if show_time and not show_date:
-                        mode = "time"
-                    elif show_date and not show_time:
-                        mode = "date"
-                    else:
-                        mode = "datetime"
-                    print(param.name, mode)
-                    widgets = DateTimeEntry(
-                        parent=panel,
-                        sizer=sizer,
-                        param=param,
-                        row=2 * idx_param,
-                        longest_param_name=longest_param_name,
-                        default_text=prefilled_value,
-                        callback=lambda evt, param=param, mode=mode: self.date_time_picker(evt, param, mode),
-                        mode=mode,
-                    )
-                else:
-                    widgets = NormalEntry(
-                        parent=panel,
-                        sizer=sizer,
-                        param=param,
-                        row=2 * idx_param,
-                        longest_param_name=longest_param_name,
-                        default_text=prefilled_value
-                    )
-                self.entry[param.name] = widgets.entry
-                self.text_error[param.name] = widgets.text_error
-        # line = wx.StaticLine(p, -1, size=(20,-1), style=wx.LI_HORIZONTAL)
-        # gbs.Add(line, (i+1, 0), (i+1, 3), wx.EXPAND|wx.RIGHT|wx.TOP, 5)
-
+        self.required_section = ParameterSection(
+            config,
+            command.name,
+            panel,
+            "Required Parameters",
+             [p for p in command.params if p.required],
+             main_boxsizer
+        )
+        self.optional_section = ParameterSection(
+            config,
+            command.name,
+            panel,
+            "Optional Parameters",
+            [p for p in command.params if not p.required],
+            main_boxsizer
+        )
+        self.text_error = {**self.required_section.text_error, **self.optional_section.text_error}
         hbox = wx.BoxSizer(wx.HORIZONTAL)
         ok_button = wx.Button(panel, -1, label="Ok")
         hbox.Add(
@@ -710,104 +785,10 @@ class Guick(wx.Frame):
             border=10,
         )
         cancel_button.Bind(wx.EVT_BUTTON, self.on_close_button)
-        main_boxsizer.Add(hbox, flag=wx.ALIGN_RIGHT | wx.RIGHT | wx.ALL, border=10)
-        if optional_param:
-            self.optional_gbs.AddGrowableCol(1)
-            self.optional_boxsizer.Add(self.optional_gbs, 1, wx.EXPAND | wx.ALL, 10)
-            self.optional_boxsizer.SetSizeHints(panel)
-        if required_param:
-            self.required_gbs.AddGrowableCol(1)
-            self.required_boxsizer.Add(self.required_gbs, 1, wx.EXPAND | wx.ALL, 10)
-            self.required_boxsizer.SetSizeHints(panel)
-
+        main_boxsizer.Add(hbox, 0, wx.ALIGN_RIGHT | wx.ALL, 5)
         panel.SetSizerAndFit(main_boxsizer)
+
         return panel
-
-    def date_time_picker(self, event, param, mode="datetime"):
-        mouse_pos = wx.GetMousePosition()
-        if mode == "date":
-            title = "Select Date"
-        elif mode == "time":
-            title = "Select Time"
-        elif mode == "datetime":
-            title = "Select Date & Time"
-        dlg = wx.Dialog(self, title=title)
-        dlg.Move(mouse_pos)
-        vbox = wx.BoxSizer(wx.VERTICAL)
-        hbox = wx.BoxSizer(wx.HORIZONTAL)
-
-        if mode in {"date", "datetime"}:
-            self.date_picker = wx.adv.DatePickerCtrl(dlg, style=wx.adv.DP_DROPDOWN)
-            hbox.Add(self.date_picker, flag=wx.ALL | wx.CENTER, border=5)
-        if mode in {"time", "datetime"}:
-            self.time_picker = wx.adv.TimePickerCtrl(dlg)
-            hbox.Add(self.time_picker, flag=wx.ALL | wx.CENTER, border=5)
-
-        btn_sizer = wx.StdDialogButtonSizer()
-        ok_btn = wx.Button(dlg, wx.ID_OK, label="OK")
-        cancel_btn = wx.Button(dlg, wx.ID_CANCEL, label="Cancel")
-        btn_sizer.AddButton(ok_btn)
-        btn_sizer.AddButton(cancel_btn)
-        btn_sizer.Realize()
-        vbox.Add(hbox, flag=wx.ALL | wx.CENTER, border=5)
-        vbox.Add(btn_sizer, flag=wx.ALL | wx.CENTER, border=5)
-
-        dlg.SetSizerAndFit(vbox)
-        if dlg.ShowModal() == wx.ID_OK:
-            # This returns a Python list of files that were selected.
-            dlg.Destroy()
-            if mode == "date":
-                self.entry[param.name].SetValue(self.date_picker.GetValue().Format(param.type.formats[0]))
-            elif mode == "time":
-                self.entry[param.name].SetValue(self.time_picker.GetValue().Format(param.type.formats[0]))
-            else:
-                self.entry[param.name].SetValue(datetime.datetime.fromisoformat(self.date_picker.GetValue().FormatISODate() + " " + self.time_picker.GetValue().FormatISOTime()).strftime(param.type.formats[0]))
-
-
-    def dir_open(self, event):
-        dlg = wx.DirDialog(
-            self, message="Choose Directory",
-            defaultPath=os.getcwd(),
-            style=wx.RESIZE_BORDER
-        )
-        if dlg.ShowModal() == wx.ID_OK:
-            path = dlg.GetPath()
-            dlg.Destroy()
-            param = [
-                param_name
-                for param_name, entry in self.button.items()
-                if entry == event.GetEventObject()
-            ][0]
-            self.entry[param].SetValue(path)
-
-    def file_open(self, event, wildcards="All files|*.*", mode="read"):
-        param = [
-            param_name
-            for param_name, entry in self.button.items()
-            if entry == event.GetEventObject()
-        ][0]
-        path = self.entry[param].GetValue()
-        last_folder = Path(path).parent if path != "" else os.getcwd()
-        if mode == "read":
-            style = wx.FD_OPEN | wx.FD_CHANGE_DIR | wx.FD_FILE_MUST_EXIST
-        else:
-            style = wx.FD_SAVE | wx.FD_CHANGE_DIR | wx.FD_OVERWRITE_PROMPT
-        dlg = wx.FileDialog(
-            self,
-            message="Choose a file",
-            defaultDir=str(last_folder),
-            defaultFile="",
-            wildcard=wildcards,
-            style=style,
-        )
-
-        # Show the dialog and retrieve the user response. If it is the OK response,
-        # process the data.
-        if dlg.ShowModal() == wx.ID_OK:
-            # This returns a Python list of files that were selected.
-            path = dlg.GetPath()
-            dlg.Destroy()
-            self.entry[param].SetValue(path)
 
     def on_close_button(self, event):
         sys.exit()
@@ -824,9 +805,10 @@ class Guick(wx.Frame):
         if not config.get(self.ctx.command.name):
             script_history = tomlkit.table()
             config.add(self.ctx.command.name, script_history)
+        entries = {**self.required_section.entry, **self.optional_section.entry}
         opts = {
             key: entry.GetValue() if entry.GetValue() != "" else None
-            for key, entry in self.entry.items()
+            for key, entry in entries.items()
         }
         args = []
         errors = {}
@@ -854,7 +836,11 @@ class Guick(wx.Frame):
                     with contextlib.suppress(KeyError):
                         self.text_error[param.name].SetLabel("")
         if errors:
-            event.GetEventObject().Enable()
+            print(errors)
+            try:
+                event.GetEventObject().Enable()
+            except AttributeError:
+                pass
             return
         # for param in self.ctx.command.params:
         for param in selected_command.params:
@@ -870,8 +856,8 @@ class Guick(wx.Frame):
             raise Exception("unexpected argument")
 
         self.ctx.args = args
-        thread = Thread(target=selected_command.invoke, args=(self.ctx,), daemon=True)
-        thread.start()
+        self.thread = Thread(target=selected_command.invoke, args=(self.ctx,), daemon=True)
+        self.thread.start()
         # event.GetEventObject().Enable()
         # self.Destroy()
 
