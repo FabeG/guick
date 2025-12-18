@@ -77,9 +77,12 @@ ANSI_COLORS = {
 class ANSITextCtrl(wx.TextCtrl):
     def __init__(self, parent, size, *args, **kwargs):
         super().__init__(parent, style=wx.TE_MULTILINE | wx.TE_RICH2 | wx.TE_READONLY, size=size)
+        self.parent = parent
         self.gauge = parent.gauge
+        self.gauge_sizer = parent.gauge_sizer
         self.gauge_text = parent.gauge_text
         self.gauge_value = 0
+        self.gauge_is_visible = False
         # Default foreground and background colors
         self.default_fg = TermColors["WHITE"]
         self.default_bg = TermColors["BLACK"]
@@ -155,6 +158,10 @@ class ANSITextCtrl(wx.TextCtrl):
                 # Regex to extract the progress bar value from the tqdm output
                 regex_tqdm = re.match(r"\r([\d\s]+)%\|.*\|(.*)", text)
                 if regex_tqdm:
+                    if not self.gauge_is_visible:
+                        self.gauge_sizer.ShowItems(True)
+                        self.gauge_is_visible = True
+                        self.parent.Layout()
                     self.gauge_value = int(regex_tqdm.group(1))
                     self.gauge.SetValue(self.gauge_value)
                     self.gauge_text.SetValue(regex_tqdm.group(2))
@@ -176,21 +183,23 @@ class LogPanel(wx.Panel):
         sb.SetFont(font)
         box_sizer = wx.StaticBoxSizer(sb, wx.VERTICAL)
         # Create the progessbar in case of tqdm
-        self.gauge = wx.Gauge(self, -1, 100, size=(-1, 10))
+        self.gauge = wx.Gauge(self, -1, 100, size=(-1, 5))
         font = get_best_monospace_font()
-        self.gauge_text = wx.TextCtrl(self, -1, "", size=(400, -1), style=wx.TE_READONLY)
-        self.gauge_text.SetFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, faceName=font))
-        hbox = wx.BoxSizer(wx.HORIZONTAL)
-        hbox.Add(self.gauge, 1, wx.EXPAND | wx.ALL, 5)
-        hbox.Add(self.gauge_text, 0, wx.EXPAND | wx.ALL, 5)
+        self.gauge_text = wx.TextCtrl(self, -1, "", size=(400, -1), style=wx.TE_READONLY | wx.NO_BORDER)
+        self.gauge_text.SetFont(wx.Font(8, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, faceName=font))
+        self.gauge_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.gauge_sizer.Add(self.gauge, 1, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 2)
+        self.gauge_sizer.Add(self.gauge_text, 0, wx.EXPAND | wx.ALL, 2)
         # Create the log
         self.log_ctrl = ANSITextCtrl(self, size=(900, 200))
         self.log_ctrl.SetMinSize((100, 200))
         self.log_ctrl.SetFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, faceName=font))
         self.log_ctrl.SetBackgroundColour(wx.Colour(*TermColors.BLACK.value))
 
-        box_sizer.Add(self.log_ctrl, 1, wx.EXPAND | wx.ALL, 5)
-        box_sizer.Add(hbox, 0, wx.EXPAND | wx.ALL, 5)
+        box_sizer.Add(self.log_ctrl, 1, wx.EXPAND | wx.ALL, 2)
+        box_sizer.Add(self.gauge_sizer, 0, wx.EXPAND | wx.ALL, 2)
+        self.gauge_sizer.Show(self.gauge_text, False)
+        self.gauge_sizer.Show(self.gauge, False)
         self.SetSizer(box_sizer)
         box_sizer.SetSizeHints(self)
         self.Layout()
@@ -836,7 +845,6 @@ class Guick(wx.Frame):
                     with contextlib.suppress(KeyError):
                         self.text_error[param.name].SetLabel("")
         if errors:
-            print(errors)
             try:
                 event.GetEventObject().Enable()
             except AttributeError:
