@@ -845,7 +845,7 @@ class Guick(wx.Frame):
         # for param in self.ctx.command.params:
         for param in selected_command.params:
             with contextlib.suppress(KeyError):
-                config[self.ctx.command.name][param.name] = self.entry[
+                config[self.ctx.command.name][param.name] = entries[
                     param.name
                 ].GetValue()
         with open(self.history_file, mode="wt", encoding="utf-8") as fp:
