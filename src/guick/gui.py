@@ -75,8 +75,8 @@ ANSI_COLORS = {
 
 
 class ANSITextCtrl(wx.TextCtrl):
-    def __init__(self, parent, size, *args, **kwargs):
-        super().__init__(parent, style=wx.TE_MULTILINE | wx.TE_RICH2 | wx.TE_READONLY, size=size)
+    def __init__(self, parent, *args, **kwargs):
+        super().__init__(parent, style=wx.TE_MULTILINE | wx.TE_RICH2 | wx.TE_READONLY)
         self.parent = parent
         self.gauge = parent.gauge
         self.gauge_sizer = parent.gauge_sizer
@@ -176,7 +176,7 @@ class ANSITextCtrl(wx.TextCtrl):
 class LogPanel(wx.Panel):
     """A panel containing a shared log in a StaticBox."""
     def __init__(self, parent):
-        super().__init__(parent, size=(900, -1))
+        super().__init__(parent)
 
         sb = wx.StaticBox(self, label="Log")
         font = wx.Font(wx.FontInfo(10).Bold())
@@ -191,7 +191,7 @@ class LogPanel(wx.Panel):
         self.gauge_sizer.Add(self.gauge, 1, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 2)
         self.gauge_sizer.Add(self.gauge_text, 0, wx.EXPAND | wx.ALL, 2)
         # Create the log
-        self.log_ctrl = ANSITextCtrl(self, size=(900, 200))
+        self.log_ctrl = ANSITextCtrl(self)
         self.log_ctrl.SetMinSize((100, 200))
         self.log_ctrl.SetFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, faceName=font))
         self.log_ctrl.SetBackgroundColour(wx.Colour(*TermColors.BLACK.value))
@@ -632,8 +632,8 @@ class ParameterSection:
 
 
 class Guick(wx.Frame):
-    def __init__(self, ctx):
-        wx.Frame.__init__(self, None, -1, ctx.command.name, size=(900, -1))
+    def __init__(self, ctx, size=None):
+        wx.Frame.__init__(self, None, -1, ctx.command.name)
         self.ctx = ctx
         self.entry = {}
         # self.button = {}
@@ -670,7 +670,6 @@ class Guick(wx.Frame):
         self.panel = wx.Panel(
             self,
             -1,
-            size=(900, -1),
             style=wx.DEFAULT_FRAME_STYLE | wx.CLIP_CHILDREN | wx.FULL_REPAINT_ON_RESIZE,
         )
         vbox = wx.BoxSizer(wx.VERTICAL)
@@ -699,6 +698,16 @@ class Guick(wx.Frame):
         sys.stdout = RedirectText(self.log_panel.log_ctrl)
         self.panel.SetSizerAndFit(vbox)
         self.Fit()
+        # Set the minimum size to the fitted size
+        self.SetMinClientSize(self.GetClientSize())
+        
+        # If a larger size is specified, apply it
+        if size:
+            current_size = self.GetClientSize()
+            new_width = max(size[0], current_size.width) if size[0] != -1 else current_size.width
+            new_height = max(size[1], current_size.height) if size[1] != -1 else current_size.height
+            self.SetClientSize((new_width, new_height))
+        
 
         self.CreateStatusBar()
         self.SetStatusText("")
@@ -886,8 +895,9 @@ class GroupGui(click.Group):
 
 
 class CommandGui(click.Command):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, size=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self.size = size
 
     def parse_args(self, ctx, args: list[str]) -> list[str]:
         # If args defined on the command line, use the CLI
@@ -898,6 +908,6 @@ class CommandGui(click.Command):
             raise Exception(ctx)
 
         app = wx.App()
-        frame = Guick(ctx)
+        frame = Guick(ctx, size=self.size)
         frame.Show()
         app.MainLoop()
