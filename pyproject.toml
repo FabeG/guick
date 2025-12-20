@@ -11,7 +11,10 @@ requires-python = ">=3.9"
 dependencies = [
     "click>=8.1.0",
     "platformdirs",
+    "pytest-mock>=3.14.0",
     "tomlkit",
+    "tqdm>=4.67.1",
+    "typer>=0.15.2",
     "wxpython",
 ]
 
@@ -23,3 +26,16 @@ license-files = []
 version_file = "src/guick/_version.py"
 version_scheme = "no-guess-dev"
 local_scheme = 'no-local-version'
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[dependency-groups]
+dev = [
+    "loguru>=0.7.3",
+    "pytest>=8.3.4",
+]
+docs = [
+    "sphinx>=7.4.7",
+]
