@@ -18,6 +18,11 @@ dependencies = [
     "wxpython",
 ]
 
+[[tool.uv.index]]
+name = "wxpython-wheels"
+url = "https://extras.wxpython.org/wxPython4/extras/linux/gtk3/ubuntu-24.04/"
+explicit = false
+
 
 [tool.setuptools]
 license-files = []
