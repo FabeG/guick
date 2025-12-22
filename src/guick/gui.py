@@ -504,8 +504,14 @@ class ParameterSection:
                         default_text=prefilled_value
                     )
 
-                # IntRange
-                elif isinstance(param.type, click.types.IntRange):
+                # IntRange: Slider only if min and max defined
+                elif (
+                    isinstance(param.type, click.types.IntRange)
+                    and hasattr(param.type, "min")
+                    and hasattr(param.type, "max")
+                    and param.type.min is not None
+                    and param.type.max is not None
+                ):
                     widgets = SliderEntry(
                         parent=self.panel,
                         param=param,
