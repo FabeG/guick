@@ -569,7 +569,7 @@ class ParameterSection:
             title = "Select Time"
         elif mode == "datetime":
             title = "Select Date & Time"
-        dlg = wx.Dialog(self, title=title)
+        dlg = wx.Dialog(self.panel, title=title)
         dlg.Move(mouse_pos)
         vbox = wx.BoxSizer(wx.VERTICAL)
         hbox = wx.BoxSizer(wx.HORIZONTAL)
@@ -599,7 +599,9 @@ class ParameterSection:
             elif mode == "time":
                 self.entry[param.name].SetValue(self.time_picker.GetValue().Format(param.type.formats[0]))
             else:
-                self.entry[param.name].SetValue(datetime.datetime.fromisoformat(self.date_picker.GetValue().FormatISODate() + " " + self.time_picker.GetValue().FormatISOTime()).strftime(param.type.formats[0]))
+                # In case we have multiple formats, pick the most complete one (with more format specifiers)
+                most_complete_format = max(param.type.formats, key=lambda s: s.count('%'))
+                self.entry[param.name].SetValue(datetime.datetime.fromisoformat(self.date_picker.GetValue().FormatISODate() + " " + self.time_picker.GetValue().FormatISOTime()).strftime(most_complete_format))
 
     def dir_open(self, event, panel, param):
         dlg = wx.DirDialog(
