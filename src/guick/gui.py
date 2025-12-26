@@ -445,9 +445,16 @@ class ParameterSection:
             if not param.is_eager and ((hasattr(param, "hidden") and not param.hidden) or (not hasattr(param, "hidden"))):
                 idx_param += 1
                 try:
+                    # If previous run, prefill this field with the one saved in
+                    # history.toml
                     prefilled_value = self.config[self.command_name][param.name]
                 except (TypeError, KeyError):
-                    prefilled_value = str(param.default) if param.default else ""
+                    # If the parameter has an envvar, prefill with its value
+                    if param.envvar and param.value_from_envvar(param.envvar):
+                        prefilled_value = param.value_from_envvar(param.envvar)
+                    # Otherwise, prefill with the default value if any
+                    else:
+                        prefilled_value = str(param.default) if param.default else ""
 
                 # File
                 if isinstance(param.type, click.File) or (isinstance(param.type, click.Path) and param.type.file_okay):
