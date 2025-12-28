@@ -347,7 +347,15 @@ class NormalEntry:
 class ChoiceEntry(NormalEntry):
     def build_entry(self):
         self.entry = wx.ComboBox(
-            self.parent, -1, size=(500, -1), choices=list(self.param.type.choices)
+            self.parent,
+            -1,
+            size=(500, -1),
+            choices=[
+                choice.name
+                if isinstance(choice, enum.Enum)
+                else str(choice)
+                for choice in self.param.type.choices
+            ]
         )
         self.entry.SetMinSize(self.min_size)
         if self.default_text:
@@ -453,6 +461,8 @@ class ParameterSection:
                     if param.envvar and param.value_from_envvar(param.envvar):
                         prefilled_value = param.value_from_envvar(param.envvar)
                     # Otherwise, prefill with the default value if any
+                    elif isinstance(param.default, Enum):
+                        prefilled_value = str(param.default.value) if param.default else ""
                     else:
                         prefilled_value = str(param.default) if param.default else ""
 
