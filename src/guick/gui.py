@@ -317,10 +317,11 @@ class NormalEntry:
         self.build_error()
 
     def build_label(self):
-        self.static_text = wx.StaticText(self.parent, -1, NormalEntry.longest_param_name)
+        self.static_text = wx.StaticText(self.parent, -1, NormalEntry.longest_param_name + " *")
         size = self.static_text.GetSize()
         self.static_text.SetMinSize(size)
-        self.static_text.SetLabel(self.param.name)
+        required = " *" if self.param.required else ""
+        self.static_text.SetLabel(self.param.name + required)
         if hasattr(self.param, "help"):
             self.static_text.SetToolTip(self.param.help)
 
