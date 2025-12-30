@@ -8,6 +8,7 @@ import sys
 import time
 import typing as t
 import webbrowser
+from enum import Enum, IntEnum
 from pathlib import Path
 from threading import Thread
 
@@ -18,6 +19,9 @@ import wx
 import wx.html
 import wx.lib.scrolledpanel as scrolled
 from wx.lib.newevent import NewEvent
+
+from click._utils import UNSET
+
 
 # Regex pattern to match ANSI escape sequences
 ANSI_ESCAPE_PATTERN = re.compile(r'\x1b\[((?:\d+;)*\d+)m')
@@ -657,6 +661,143 @@ class ParameterSection:
             self.entry[param].SetValue(path)
 
 
+class CommandPanel(wx.Panel):
+    def __init__(self, parent, ctx, name, history_file):
+        super().__init__(parent, -1)
+        self.entry = {}
+        self.text_errors = {}
+        self.history_file = history_file
+        self.ctx = ctx
+        self.command_name = name
+
+        # Load the history file if it exists
+        self.config = tomlkit.document()
+        try:
+            with open(self.history_file, encoding="utf-8") as fp:
+                self.config = tomlkit.load(fp)
+        except FileNotFoundError:
+            pass
+
+        # Get the command
+        try:
+            # If it is a group, get the subcommand
+            command = ctx.command.commands.get(name)
+        except AttributeError:
+            # Otherwise, get the main command
+            command = ctx.command
+
+        # Set the longest parameter name for alignment
+        longest_param_name = max([param.name for param in command.params], key=len)
+        NormalEntry.init_class(longest_param_name)
+
+        main_boxsizer = wx.BoxSizer(wx.VERTICAL)
+        self.required_section = ParameterSection(
+            self.config,
+            command.name,
+            self,
+            "Required Parameters",
+             [p for p in command.params if p.required],
+             main_boxsizer
+        )
+        self.optional_section = ParameterSection(
+            self.config,
+            command.name,
+            self,
+            "Optional Parameters",
+            [p for p in command.params if not p.required],
+            main_boxsizer
+        )
+        self.text_error = {**self.required_section.text_error, **self.optional_section.text_error}
+
+        # Buttons OK / Close at the bottom
+        hbox = wx.BoxSizer(wx.HORIZONTAL)
+        ok_button = wx.Button(self, -1, label="Ok")
+        hbox.Add(
+            ok_button,
+            flag=wx.BOTTOM | wx.RIGHT,
+            border=2,
+        )
+        ok_button.Bind(wx.EVT_BUTTON, self.on_ok_button)
+
+        cancel_button = wx.Button(self, label="Cancel")
+        hbox.Add(
+            cancel_button,
+            flag=wx.BOTTOM | wx.LEFT,
+            border=2,
+        )
+        cancel_button.Bind(wx.EVT_BUTTON, self.on_close_button)
+        main_boxsizer.Add(hbox, 0, wx.ALIGN_RIGHT | wx.RIGHT | wx.TOP, 10)
+        self.SetSizerAndFit(main_boxsizer)
+
+    def on_close_button(self, event):
+        sys.exit()
+
+    def on_ok_button(self, event):
+
+        # If the command section does not exist in the history file, create it
+        if self.command_name and self.command_name not in self.config:
+            script_history = tomlkit.table()
+            self.config.add(self.command_name, script_history)
+
+        entries = {**self.required_section.entry, **self.optional_section.entry}
+        opts = {
+            key: entry.GetValue() if entry.GetValue() != "" else UNSET
+            for key, entry in entries.items()
+        }
+        # hidden_opts = {
+        #     param.name: param.default for param in self.ctx.command.params if param.hidden
+        # }
+        # opts = {**opts, **hidden_opts}
+        args = []
+        errors = {}
+        # Get the selected command
+        try:
+            selected_command = self.ctx.command.commands.get(self.command_name)
+        except AttributeError:
+            selected_command = self.ctx.command
+
+        # Parse parameters and save errors if any
+        self.ctx.params = {}
+        for param in selected_command.params:
+            print(param)
+            try:
+                _, args = param.handle_parse_result(self.ctx, opts, args)
+            except Exception as exc:
+                errors[exc.param.name] = exc
+
+        # Display errors if any
+        for param in selected_command.params:
+            if (hasattr(param, "hidden") and not param.hidden) or (not hasattr(param, "hidden")):
+                if errors.get(param.name):
+                    self.text_error[param.name].SetLabel(str(errors[param.name]))
+                    self.text_error[param.name].SetToolTip(str(errors[param.name]))
+                else:
+                    with contextlib.suppress(KeyError):
+                        self.text_error[param.name].SetLabel("")
+
+        # If there are errors, we stop here
+        if errors:
+            return
+
+        # Save the parameters to the history file
+        for param in selected_command.params:
+            with contextlib.suppress(KeyError):
+                self.config[self.command_name][param.name] = entries[
+                    param.name
+                ].GetValue()
+        with open(self.history_file, mode="w", encoding="utf-8") as fp:
+            tomlkit.dump(self.config, fp)
+
+        if args and not self.ctx.allow_extra_args and not self.ctx.resilient_parsing:
+            event.GetEventObject().Enable()
+            raise Exception("unexpected argument")
+
+        # Invoke the command in a separate thread to avoid blocking the GUI
+        self.ctx.args = args
+        self.thread = Thread(target=selected_command.invoke, args=(self.ctx,), daemon=True)
+        self.thread.start()
+
+
 class Guick(wx.Frame):
     def __init__(self, ctx, size=None):
         wx.Frame.__init__(self, None, -1, ctx.command.name)
@@ -705,7 +846,7 @@ class Guick(wx.Frame):
             parent = self.notebook
             for name in ctx.command.commands:
                 command = ctx.command.commands.get(name)
-                panel = self.build_command_gui(parent, command)
+                panel = CommandPanel(parent, ctx, name, self.history_file)
                 self.notebook.AddPage(panel, name, 1, 0)
                 self.panel.SetBackgroundColour(wx.Colour((240, 240, 240, 255)))
             font = wx.Font(wx.FontInfo(14).Bold())
@@ -715,7 +856,7 @@ class Guick(wx.Frame):
         else:
             parent = self.panel
             command = ctx.command
-            panel = self.build_command_gui(parent, command)
+            panel = CommandPanel(parent, ctx, "", self.history_file)
             vbox.Add(panel, 0, wx.EXPAND | wx.ALL, 10)
 
         # # Create the log
@@ -739,6 +880,13 @@ class Guick(wx.Frame):
         self.SetStatusText("")
 
         self.Centre()
+
+        self.Bind(wx.EVT_CLOSE, self.on_exit)
+
+    def on_exit(self, event):
+        # Destroys the main frame which quits the wxPython application
+        self.Destroy()
+        sys.exit()
 
     def on_help(self, event):
         head = self.ctx.command.name
@@ -774,135 +922,6 @@ class Guick(wx.Frame):
         dlg.Show()
 
 
-    def build_command_gui(self, parent, command):
-        # self.panel = scrolled.ScrolledPanel(
-
-        panel = wx.Panel(parent, -1)
-        # Load the history file if it exists
-        config = tomlkit.document()
-        try:
-            with open(self.history_file, encoding="utf-8") as fp:
-                config = tomlkit.load(fp)
-        except FileNotFoundError:
-            pass
-        if not config.get(command.name):
-            script_history = tomlkit.table()
-            config.add(command.name, script_history)
-
-        self.Bind(wx.EVT_CLOSE, self.on_close_button)
-
-        # Set the longest parameter name for alignment
-        longest_param_name = max([param.name for param in command.params], key=len)
-        NormalEntry.init_class(longest_param_name)
-
-        main_boxsizer = wx.BoxSizer(wx.VERTICAL)
-        self.required_section = ParameterSection(
-            config,
-            command.name,
-            panel,
-            "Required Parameters",
-             [p for p in command.params if p.required],
-             main_boxsizer
-        )
-        self.optional_section = ParameterSection(
-            config,
-            command.name,
-            panel,
-            "Optional Parameters",
-            [p for p in command.params if not p.required],
-            main_boxsizer
-        )
-        self.text_error = {**self.required_section.text_error, **self.optional_section.text_error}
-        hbox = wx.BoxSizer(wx.HORIZONTAL)
-        ok_button = wx.Button(panel, -1, label="Ok")
-        hbox.Add(
-            ok_button,
-            flag=wx.BOTTOM | wx.RIGHT,
-            border=10,
-        )
-        ok_button.Bind(wx.EVT_BUTTON, self.on_ok_button)
-
-        cancel_button = wx.Button(panel, label="Cancel")
-        hbox.Add(
-            cancel_button,
-            flag=wx.BOTTOM | wx.LEFT,
-            border=10,
-        )
-        cancel_button.Bind(wx.EVT_BUTTON, self.on_close_button)
-        main_boxsizer.Add(hbox, 0, wx.ALIGN_RIGHT | wx.ALL, 5)
-        panel.SetSizerAndFit(main_boxsizer)
-
-        return panel
-
-    def on_close_button(self, event):
-        sys.exit()
-
-    def on_ok_button(self, event):
-        # Disable the button
-        # event.GetEventObject().Disable()
-        config = tomlkit.document()
-        try:
-            with open(self.history_file, mode="rt", encoding="utf-8") as fp:
-                config = tomlkit.load(fp)
-        except FileNotFoundError:
-            pass
-        if not config.get(self.ctx.command.name):
-            script_history = tomlkit.table()
-            config.add(self.ctx.command.name, script_history)
-        entries = {**self.required_section.entry, **self.optional_section.entry}
-        opts = {
-            key: entry.GetValue() if entry.GetValue() != "" else None
-            for key, entry in entries.items()
-        }
-        args = []
-        errors = {}
-        try:
-            idx = self.notebook.GetSelection()
-            selected_command_name = list(self.ctx.command.commands)[idx]
-            selected_command = self.ctx.command.commands.get(selected_command_name)
-        except AttributeError:
-            selected_command = self.ctx.command
-        # for param in self.ctx.command.params:
-        for param in selected_command.params:
-            try:
-                value, args = param.handle_parse_result(self.ctx, opts, args)
-            except Exception as exc:
-                errors[exc.param.name] = exc
-
-        # for param in self.ctx.command.commands.get(selected_command).params:
-        # for param in self.ctx.command.params:
-        for param in selected_command.params:
-            if (hasattr(param, "hidden") and not param.hidden) or (not hasattr(param, "hidden")):
-                if errors.get(param.name):
-                    self.text_error[param.name].SetLabel(str(errors[param.name]))
-                    self.text_error[param.name].SetToolTip(str(errors[param.name]))
-                else:
-                    with contextlib.suppress(KeyError):
-                        self.text_error[param.name].SetLabel("")
-        if errors:
-            try:
-                event.GetEventObject().Enable()
-            except AttributeError:
-                pass
-            return
-        # for param in self.ctx.command.params:
-        for param in selected_command.params:
-            with contextlib.suppress(KeyError):
-                config[self.ctx.command.name][param.name] = entries[
-                    param.name
-                ].GetValue()
-        with open(self.history_file, mode="wt", encoding="utf-8") as fp:
-            tomlkit.dump(config, fp)
-
-        if args and not self.ctx.allow_extra_args and not self.ctx.resilient_parsing:
-            event.GetEventObject().Enable()
-            raise Exception("unexpected argument")
-
-        self.ctx.args = args
-        self.thread = Thread(target=selected_command.invoke, args=(self.ctx,), daemon=True)
-        self.thread.start()
-        # event.GetEventObject().Enable()
-        # self.Destroy()
 
 
 class GroupGui(click.Group):
@@ -910,7 +929,9 @@ class GroupGui(click.Group):
         super().__init__(*args, **kwargs)
 
     def parse_args(self, ctx, args: list[str]) -> list[str]:
-        # print(args)
+        if args:
+            args = super().parse_args(ctx, args)
+            return args
         # if not args and self.no_args_is_help and not ctx.resilient_parsing:
         #     raise Exception(ctx)
 
