@@ -455,7 +455,15 @@ class ParameterSection:
     def _populate(self):
         idx_param = -1
         for param in self.params:
-            if not param.is_eager and ((hasattr(param, "hidden") and not param.hidden) or (not hasattr(param, "hidden"))):
+            if (
+                not param.is_eager
+                # If using typer, these parameters are automatically added
+                and param.name not in {"install_completion", "show_completion"}
+                and (
+                    (hasattr(param, "hidden") and not param.hidden)
+                    or (not hasattr(param, "hidden"))
+                )
+            ):
                 idx_param += 1
                 try:
                     # If previous run, prefill this field with the one saved in
