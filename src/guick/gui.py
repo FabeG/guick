@@ -310,7 +310,7 @@ class NormalEntry:
         self.entry = None
         self.text_error = None
         self.default_text = kwargs.get("default_text")
-        self.min_size = (100, -1)
+        self.min_size = (400, -1)
         self.build_label()
         self.build_entry()
         self.build_button()
@@ -370,9 +370,13 @@ class ChoiceEntry(NormalEntry):
 class BoolEntry(NormalEntry):
     def build_entry(self):
         self.entry = wx.CheckBox(self.parent, -1)
-        self.entry.SetMinSize(self.min_size)
         if self.default_text:
             self.entry.SetValue(bool(self.default_text))
+        self.entry.Bind(wx.EVT_SET_FOCUS, self.on_focus)
+
+    def on_focus(self, event):
+        # Redirect focus away (to avoid the focus rect to be put on the empty labal)
+        self.parent.SetFocus()
 
 
 class SliderEntry(NormalEntry):
@@ -411,7 +415,7 @@ class DateTimeEntry(NormalEntry):
         super().__init__(**kwargs)
 
     def build_button(self):
-        self.button = wx.Button(self.parent, -1, "Browse")
+        self.button = wx.Button(self.parent, -1, "Select")
         self.button.Bind(
             wx.EVT_BUTTON, self.callback
         )
@@ -775,7 +779,6 @@ class CommandPanel(wx.Panel):
         # Parse parameters and save errors if any
         self.ctx.params = {}
         for param in selected_command.params:
-            print(param)
             try:
                 _, args = param.handle_parse_result(self.ctx, opts, args)
             except Exception as exc:
