@@ -673,7 +673,7 @@ class ParameterSection:
 class CommandPanel(wx.Panel):
     def __init__(self, parent, ctx, name, history_file):
         super().__init__(parent, -1)
-        self.entry = {}
+        self.entries = {}
         self.text_errors = {}
         self.history_file = history_file
         self.ctx = ctx
@@ -700,23 +700,31 @@ class CommandPanel(wx.Panel):
         NormalEntry.init_class(longest_param_name)
 
         main_boxsizer = wx.BoxSizer(wx.VERTICAL)
-        self.required_section = ParameterSection(
-            self.config,
-            command.name,
-            self,
-            "Required Parameters",
-             [p for p in command.params if p.required],
-             main_boxsizer
-        )
-        self.optional_section = ParameterSection(
-            self.config,
-            command.name,
-            self,
-            "Optional Parameters",
-            [p for p in command.params if not p.required],
-            main_boxsizer
-        )
-        self.text_error = {**self.required_section.text_error, **self.optional_section.text_error}
+        panels = defaultdict(list)
+        user_defined_panels = []
+        for param in command.params:
+            if hasattr(param, "rich_help_panel") and (panel_name := param.rich_help_panel):
+                panels[panel_name].append(param)
+                if panel_name not in user_defined_panels:
+                    user_defined_panels.append(panel_name)
+            elif param.required:
+                panels["Required Parameters"].append(param)
+            else:
+                panels["Optional Parameters"].append(param)
+        list_panels = ["Required Parameters", *user_defined_panels, "Optional Parameters"]
+
+        for panel in list_panels:
+            if panels[panel]:
+                self.sections = ParameterSection(
+                    self.config,
+                    command.name,
+                    self,
+                    panel,
+                    panels[panel],
+                    main_boxsizer
+                )
+                self.entries.update(self.sections.entry)
+                self.text_errors.update(self.sections.text_error)
 
         # Buttons OK / Close at the bottom
         hbox = wx.BoxSizer(wx.HORIZONTAL)
@@ -748,10 +756,9 @@ class CommandPanel(wx.Panel):
             script_history = tomlkit.table()
             self.config.add(self.command_name, script_history)
 
-        entries = {**self.required_section.entry, **self.optional_section.entry}
         opts = {
             key: entry.GetValue() if entry.GetValue() != "" else UNSET
-            for key, entry in entries.items()
+            for key, entry in self.entries.items()
         }
         # hidden_opts = {
         #     param.name: param.default for param in self.ctx.command.params if param.hidden
@@ -778,11 +785,11 @@ class CommandPanel(wx.Panel):
         for param in selected_command.params:
             if (hasattr(param, "hidden") and not param.hidden) or (not hasattr(param, "hidden")):
                 if errors.get(param.name):
-                    self.text_error[param.name].SetLabel(str(errors[param.name]))
-                    self.text_error[param.name].SetToolTip(str(errors[param.name]))
+                    self.text_errors[param.name].SetLabel(str(errors[param.name]))
+                    self.text_errors[param.name].SetToolTip(str(errors[param.name]))
                 else:
                     with contextlib.suppress(KeyError):
-                        self.text_error[param.name].SetLabel("")
+                        self.text_errors[param.name].SetLabel("")
 
         # If there are errors, we stop here
         if errors:
@@ -791,7 +798,7 @@ class CommandPanel(wx.Panel):
         # Save the parameters to the history file
         for param in selected_command.params:
             with contextlib.suppress(KeyError):
-                self.config[self.command_name][param.name] = entries[
+                self.config[self.command_name][param.name] = self.entries[
                     param.name
                 ].GetValue()
         with open(self.history_file, mode="w", encoding="utf-8") as fp:
