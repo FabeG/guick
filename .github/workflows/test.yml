@@ -2,7 +2,10 @@ on: [push, pull_request]
 
 jobs:
   test-linux:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04  # <--- CRITICAL: Pin this to 22.04 to match the URL below
+    env:
+      # Tell uv where to find the Linux wheels
+      UV_EXTRA_INDEX_URL: "https://extras.wxpython.org/wxPython4/extras/linux/gtk3/ubuntu-22.04"
     steps:
       - uses: actions/checkout@v4
 
