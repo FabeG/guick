@@ -30,7 +30,7 @@ jobs:
       - name: Install dependencies
         run: |
           uv sync --group dev
-          uv add wxPython-4.2.4-cp311-cp311-linux_x86_64.whl
+          uv add wxpython-4.2.4-cp311-cp311-linux_x86_64.whl
 
       #    Option B: If you just use requirements.txt (Simple)
       #    - run: uv pip install --system -r requirements.txt
