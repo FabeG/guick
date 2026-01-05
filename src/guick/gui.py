@@ -822,9 +822,7 @@ class Guick(wx.Frame):
     def __init__(self, ctx, size=None):
         wx.Frame.__init__(self, None, -1, ctx.command.name)
         self.ctx = ctx
-        self.entry = {}
-        # self.button = {}
-        self.text_error = {}
+        self.cmd_panels = {}
 
         # Create Help menu
         menubar = wx.MenuBar()
@@ -868,6 +866,7 @@ class Guick(wx.Frame):
                 command = ctx.command.commands.get(name)
                 panel = CommandPanel(parent, ctx, name, self.history_file)
                 self.notebook.AddPage(panel, name, 1, 0)
+                self.cmd_panels[name] = panel
                 self.panel.SetBackgroundColour(wx.Colour((240, 240, 240, 255)))
             font = wx.Font(wx.FontInfo(14).Bold())
             self.notebook.SetFont(font)
@@ -877,6 +876,7 @@ class Guick(wx.Frame):
             parent = self.panel
             command = ctx.command
             panel = CommandPanel(parent, ctx, "", self.history_file)
+            self.cmd_panels[ctx.command.name] = panel
             vbox.Add(panel, 0, wx.EXPAND | wx.ALL, 10)
 
         # # Create the log
