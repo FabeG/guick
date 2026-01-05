@@ -38,11 +38,8 @@ def test_string_option(tmp_path, mocker, args, expect):
     original_init = gui.Guick
     def init_gui(ctx, size=None):
         guick = original_init(ctx)
-        wx.Yield()
         guick.cmd_panels["cli"].entries["s"].SetValue(args)
-        wx.Yield()
         guick.cmd_panels["cli"].on_ok_button(None)
-        wx.Yield()
         return guick
     mocker.patch("guick.gui.Guick", init_gui)
     # mocker.patch("guick.gui.Guick.on_close_buttton", lambda: pass)
@@ -78,7 +75,6 @@ def test_int_option(tmp_path, mocker, args, expect):
         guick = original_init(ctx)
         guick.cmd_panels["cli"].entries["i"].SetValue(args)
         guick.cmd_panels["cli"].on_ok_button(None)
-        guick.cmd_panels["cli"].on_close_button(None)
         return guick
     mocker.patch("guick.gui.Guick", init_gui)
     # mocker.patch("guick.gui.Guick.on_close_buttton", lambda: pass)
@@ -119,7 +115,6 @@ def test_uuid_option(tmp_path, mocker, args, expect):
         guick = original_init(ctx)
         guick.cmd_panels["cli"].entries["u"].SetValue(args)
         guick.cmd_panels["cli"].on_ok_button(None)
-        guick.cmd_panels["cli"].on_close_button(None)
         return guick
     mocker.patch("guick.gui.Guick", init_gui)
     # mocker.patch("guick.gui.Guick.on_close_buttton", lambda: pass)
@@ -155,7 +150,6 @@ def test_float_option(tmp_path, mocker, args, expect):
         guick = original_init(ctx)
         guick.cmd_panels["cli"].entries["f"].SetValue(args)
         guick.cmd_panels["cli"].on_ok_button(None)
-        guick.cmd_panels["cli"].on_close_button(None)
         return guick
     mocker.patch("guick.gui.Guick", init_gui)
     # mocker.patch("guick.gui.Guick.on_close_buttton", lambda: pass)
@@ -186,7 +180,6 @@ def test_boolean_switch(tmp_path, mocker, args, expect, default):
         guick = original_init(ctx)
         guick.cmd_panels["cli"].entries["on"].SetValue(args)
         guick.cmd_panels["cli"].on_ok_button(None)
-        guick.cmd_panels["cli"].on_close_button(None)
         return guick
     mocker.patch("guick.gui.Guick", init_gui)
     # mocker.patch("guick.gui.Guick.on_close_buttton", lambda: pass)
@@ -215,7 +208,6 @@ def test_boolean_flag(tmp_path, mocker, default, args, expect):
         guick = original_init(ctx)
         guick.cmd_panels["cli"].entries["f"].SetValue(args)
         guick.cmd_panels["cli"].on_ok_button(None)
-        guick.cmd_panels["cli"].on_close_button(None)
         return guick
     mocker.patch("guick.gui.Guick", init_gui)
     # mocker.patch("guick.gui.Guick.on_close_buttton", lambda: pass)
@@ -250,7 +242,6 @@ def test_boolean_conversion(tmp_path, mocker, value, expect):
         guick = original_init(ctx)
         guick.cmd_panels["cli"].entries["flag"].SetValue(value)
         guick.cmd_panels["cli"].on_ok_button(None)
-        guick.cmd_panels["cli"].on_close_button(None)
         return guick
     mocker.patch("guick.gui.Guick", init_gui)
     # mocker.patch("guick.gui.Guick.on_close_buttton", lambda: pass)
@@ -283,7 +274,6 @@ def test_file_option(tmp_path, mocker):
         guick = original_init(ctx)
         guick.cmd_panels[list(guick.cmd_panels.keys())[0]].entries["file"].SetValue(str(tmp_path / "example.txt"))
         guick.cmd_panels[list(guick.cmd_panels.keys())[0]].on_ok_button(None)
-        guick.cmd_panels[list(guick.cmd_panels.keys())[0]].on_close_button(None)
         return guick
     mocker.patch("guick.gui.Guick", init_gui)
     # mocker.patch("guick.gui.Guick.on_close_buttton", lambda: pass)
@@ -313,7 +303,6 @@ def test_choice_option(tmp_path, mocker):
         guick = original_init(ctx)
         guick.cmd_panels["cli"].entries["method"].SetValue("foo")
         guick.cmd_panels["cli"].on_ok_button(None)
-        guick.cmd_panels["cli"].on_close_button(None)
         return guick
     mocker.patch("guick.gui.Guick", init_gui)
     # mocker.patch("guick.gui.Guick.on_close_buttton", lambda: pass)
@@ -341,7 +330,6 @@ def test_choice_argument(tmp_path, mocker):
         guick = original_init(ctx)
         guick.cmd_panels["cli"].entries["method"].SetValue("foo")
         guick.cmd_panels["cli"].on_ok_button(None)
-        guick.cmd_panels["cli"].on_close_button(None)
         return guick
     mocker.patch("guick.gui.Guick", init_gui)
     # mocker.patch("guick.gui.Guick.on_close_buttton", lambda: pass)
@@ -374,7 +362,6 @@ def test_choice_argument(tmp_path, mocker):
 #         guick = original_init(ctx)
 #         guick.cmd_panels["cli"].entries["method"].SetValue("foo")
 #         guick.cmd_panels["cli"].on_ok_button(None)
-#         guick.cmd_panels["cli"].on_close_button(None)
 #         return guick
 #     mocker.patch("guick.gui.Guick", init_gui)
 #     # mocker.patch("guick.gui.Guick.on_close_buttton", lambda: pass)
@@ -401,7 +388,6 @@ def test_choice_argument(tmp_path, mocker):
 #         guick = original_init(ctx)
 #         guick.cmd_panels["cli"].entries["method"].SetValue("meh")
 #         guick.cmd_panels["cli"].on_ok_button(None)
-#         guick.cmd_panels["cli"].on_close_button(None)
 #         return guick
 #     mocker.patch("guick.gui.Guick", init_gui)
 #     # mocker.patch("guick.gui.Guick.on_close_buttton", lambda: pass)
@@ -426,7 +412,6 @@ def test_datetime_option_default(tmp_path, mocker):
         guick = original_init(ctx)
         guick.cmd_panels["cli"].entries["start_date"].SetValue("2015-09-29")
         guick.cmd_panels["cli"].on_ok_button(None)
-        guick.cmd_panels["cli"].on_close_button(None)
         return guick
     mocker.patch("guick.gui.Guick", init_gui)
     # mocker.patch("guick.gui.Guick.on_close_buttton", lambda: pass)
@@ -454,7 +439,6 @@ def test_datetime_option_custom(tmp_path, mocker):
         guick = original_init(ctx)
         guick.cmd_panels["cli"].entries["start_date"].SetValue("Wednesday June 05, 2010")
         guick.cmd_panels["cli"].on_ok_button(None)
-        guick.cmd_panels["cli"].on_close_button(None)
         return guick
     mocker.patch("guick.gui.Guick", init_gui)
     # mocker.patch("guick.gui.Guick.on_close_buttton", lambda: pass)
@@ -486,7 +470,6 @@ def test_path_option(tmp_path, mocker):
         logger.info(list(guick.cmd_panels.keys()))
         guick.cmd_panels["write-to-dir"].entries["o"].SetValue(str(tmp_path / "test"))
         guick.cmd_panels["write-to-dir"].on_ok_button(None)
-        guick.cmd_panels["write-to-dir"].on_close_button(None)
         return guick
     mocker.patch("guick.gui.Guick", init_gui)
     # mocker.patch("guick.gui.Guick.on_close_buttton", lambda: pass)
@@ -513,7 +496,6 @@ def test_path_option_2(tmp_path, mocker):
         guick = original_init(ctx)
         guick.cmd_panels["showtype"].entries["f"].SetValue(".")
         guick.cmd_panels["showtype"].on_ok_button(None)
-        guick.cmd_panels["showtype"].on_close_button(None)
         return guick
     mocker.patch("guick.gui.Guick", init_gui_new)
 
@@ -548,7 +530,6 @@ def test_path_option_3(tmp_path, mocker, args, expect):
         guick = original_init(ctx)
         guick.cmd_panels["exists"].entries["f"].SetValue(args)
         guick.cmd_panels["exists"].on_ok_button(None)
-        guick.cmd_panels["exists"].on_close_button(None)
         return guick
     mocker.patch("guick.gui.Guick", init_gui_new)
 
