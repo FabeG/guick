@@ -593,7 +593,15 @@ def test_choice_argument_custom_type(tmp_path, mocker, args, expect):
     assert expect in (tmp_path / "logfile.log").read_text(encoding="utf-8")
 
 
-def test_datetime_option_default(tmp_path, mocker):
+@pytest.mark.parametrize(
+    ("args", "expect"),
+    [
+        ("2015-09-29", "2015-09-29T00:00:00"),
+        ("2015-09-29T09:11:22", "2015-09-29T09:11:22"),
+        ("2015-09", "'2015-09' does not match the formats '%Y-%m-%d', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S'."),
+    ],
+)
+def test_datetime_option_default(tmp_path, mocker, args, expect):
     @click.command(cls=gui.CommandGui)
     @click.option("--start_date", type=click.DateTime())
     def cli(start_date):
@@ -609,14 +617,18 @@ def test_datetime_option_default(tmp_path, mocker):
     original_init = gui.Guick
     def init_gui(ctx, size=None):
         guick = original_init(ctx)
-        guick.cmd_panels["cli"].entries["start_date"].SetValue("2015-09-29")
+        guick.cmd_panels["cli"].entries["start_date"].SetValue(args)
         guick.cmd_panels["cli"].on_ok_button(None)
+        error = guick.cmd_panels["cli"].text_errors["start_date"].GetLabel()
+        if error:
+            logger.info(error)
+            guick.cmd_panels["cli"].on_close_button(None)
         return guick
     mocker.patch("guick.gui.Guick", init_gui)
     # mocker.patch("guick.gui.Guick.on_close_buttton", lambda: pass)
     with pytest.raises(SystemExit):
         cli()
-    assert "2015-09-29T00:00:00" in (tmp_path / "logfile.log").read_text(encoding="utf-8")
+    assert expect in (tmp_path / "logfile.log").read_text(encoding="utf-8")
 
 
 def test_datetime_option_custom(tmp_path, mocker):
@@ -644,8 +656,3 @@ def test_datetime_option_custom(tmp_path, mocker):
     with pytest.raises(SystemExit):
         cli()
     assert "2010-06-05T00:00:00" in (tmp_path / "logfile.log").read_text(encoding="utf-8")
-
-
-
-
-
