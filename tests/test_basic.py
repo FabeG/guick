@@ -33,12 +33,16 @@ def test_string_option(tmp_path, mocker, args, expect):
         level="INFO",
     )
 
+    mocker.patch("wx.App")
+    mocker.patch("wx.App.MainLoop")
     original_init = gui.Guick
     def init_gui(ctx, size=None):
         guick = original_init(ctx)
+        wx.Yield()
         guick.cmd_panels["cli"].entries["s"].SetValue(args)
+        wx.Yield()
         guick.cmd_panels["cli"].on_ok_button(None)
-        guick.cmd_panels["cli"].on_close_button(None)
+        wx.Yield()
         return guick
     mocker.patch("guick.gui.Guick", init_gui)
     # mocker.patch("guick.gui.Guick.on_close_buttton", lambda: pass)
@@ -66,6 +70,8 @@ def test_int_option(tmp_path, mocker, args, expect):
         tmp_path / "logfile.log",
         level="INFO",
     )
+    mocker.patch("wx.App")
+    mocker.patch("wx.App.MainLoop")
 
     original_init = gui.Guick
     def init_gui(ctx, size=None):
@@ -105,6 +111,8 @@ def test_uuid_option(tmp_path, mocker, args, expect):
         tmp_path / "logfile.log",
         level="INFO",
     )
+    mocker.patch("wx.App")
+    mocker.patch("wx.App.MainLoop")
 
     original_init = gui.Guick
     def init_gui(ctx, size=None):
@@ -139,6 +147,8 @@ def test_float_option(tmp_path, mocker, args, expect):
         tmp_path / "logfile.log",
         level="INFO",
     )
+    mocker.patch("wx.App")
+    mocker.patch("wx.App.MainLoop")
 
     original_init = gui.Guick
     def init_gui(ctx, size=None):
@@ -168,6 +178,8 @@ def test_boolean_switch(tmp_path, mocker, args, expect, default):
         tmp_path / "logfile.log",
         level="INFO",
     )
+    mocker.patch("wx.App")
+    mocker.patch("wx.App.MainLoop")
 
     original_init = gui.Guick
     def init_gui(ctx, size=None):
@@ -195,6 +207,8 @@ def test_boolean_flag(tmp_path, mocker, default, args, expect):
         tmp_path / "logfile.log",
         level="INFO",
     )
+    mocker.patch("wx.App")
+    mocker.patch("wx.App.MainLoop")
 
     original_init = gui.Guick
     def init_gui(ctx, size=None):
@@ -228,6 +242,8 @@ def test_boolean_conversion(tmp_path, mocker, value, expect):
         tmp_path / "logfile.log",
         level="INFO",
     )
+    mocker.patch("wx.App")
+    mocker.patch("wx.App.MainLoop")
 
     original_init = gui.Guick
     def init_gui(ctx, size=None):
@@ -259,6 +275,8 @@ def test_file_option(tmp_path, mocker):
         tmp_path / "logfile.log",
         level="INFO",
     )
+    mocker.patch("wx.App")
+    mocker.patch("wx.App.MainLoop")
 
     original_init = gui.Guick
     def init_gui(ctx, size=None):
@@ -287,6 +305,8 @@ def test_choice_option(tmp_path, mocker):
         tmp_path / "logfile.log",
         level="INFO",
     )
+    mocker.patch("wx.App")
+    mocker.patch("wx.App.MainLoop")
 
     original_init = gui.Guick
     def init_gui(ctx, size=None):
@@ -313,6 +333,8 @@ def test_choice_argument(tmp_path, mocker):
         tmp_path / "logfile.log",
         level="INFO",
     )
+    mocker.patch("wx.App")
+    mocker.patch("wx.App.MainLoop")
 
     original_init = gui.Guick
     def init_gui(ctx, size=None):
@@ -396,6 +418,8 @@ def test_datetime_option_default(tmp_path, mocker):
         tmp_path / "logfile.log",
         level="INFO",
     )
+    mocker.patch("wx.App")
+    mocker.patch("wx.App.MainLoop")
 
     original_init = gui.Guick
     def init_gui(ctx, size=None):
@@ -422,6 +446,8 @@ def test_datetime_option_custom(tmp_path, mocker):
         tmp_path / "logfile.log",
         level="INFO",
     )
+    mocker.patch("wx.App")
+    mocker.patch("wx.App.MainLoop")
 
     original_init = gui.Guick
     def init_gui(ctx, size=None):
@@ -451,6 +477,8 @@ def test_path_option(tmp_path, mocker):
         tmp_path / "logfile.log",
         level="INFO",
     )
+    mocker.patch("wx.App")
+    mocker.patch("wx.App.MainLoop")
 
     original_init = gui.Guick
     def init_gui(ctx, size=None):
@@ -477,6 +505,8 @@ def test_path_option_2(tmp_path, mocker):
         tmp_path / "logfile.log",
         level="INFO",
     )
+    mocker.patch("wx.App")
+    mocker.patch("wx.App.MainLoop")
 
     original_init = gui.Guick
     def init_gui_new(ctx, size=None):
@@ -510,6 +540,8 @@ def test_path_option_3(tmp_path, mocker, args, expect):
         tmp_path / "logfile.log",
         level="INFO",
     )
+    mocker.patch("wx.App")
+    mocker.patch("wx.App.MainLoop")
 
     original_init = gui.Guick
     def init_gui_new(ctx, size=None):
