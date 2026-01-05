@@ -16,8 +16,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libnotify-dev libsdl2-dev
           sudo apt-get install -y xvfb
-          WHEEL_URL="https://extras.wxpython.org/wxPython4/extras/linux/gtk3/ubuntu-22.04/wxpython-4.2.4-cp311-cp311-linux_x86_64.whl"
-          wget $WHEEL_URL
 
       # 2. Setup uv
       - name: Install uv
@@ -30,7 +28,7 @@ jobs:
       - name: Install dependencies
         run: |
           uv sync --group dev
-          uv add wxpython-4.2.4-cp311-cp311-linux_x86_64.whl
+          uv add wxpython --find-links https://extras.wxpython.org/wxPython4/extras/linux/gtk3/ubuntu-22.04
 
       #    Option B: If you just use requirements.txt (Simple)
       #    - run: uv pip install --system -r requirements.txt
