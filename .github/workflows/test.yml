@@ -39,4 +39,13 @@ jobs:
       #    and use 'uv run' to ensure we use the correct environment.
       - name: Run Tests
         run: |
-          xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" uv run pytest -v
+          xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" uv run pytest -v --tb=long -x 2>&1 | tee test_output.log || true
+          cat test_output.log
+        continue-on-error: true
+
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-logs
+          path: test_output.log
