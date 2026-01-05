@@ -9,7 +9,7 @@ import sys
 import time
 import typing as t
 import webbrowser
-from enum import Enum, IntEnum
+import enum
 from pathlib import Path
 from threading import Thread
 
@@ -31,7 +31,7 @@ ANSI_ESCAPE_PATTERN = re.compile(r'\x1b\[((?:\d+;)*\d+)m')
 # Windows Terminal Colors
 # Mapping ANSI color codes to HTML colors
 # From https://devblogs.microsoft.com/commandline/updating-the-windows-console-colors/
-class TermColors(Enum):
+class TermColors(enum.Enum):
     BLACK = (12, 12, 12)
     RED = (197, 15, 31)
     GREEN = (19, 161, 14)
@@ -50,7 +50,7 @@ class TermColors(Enum):
     BRIGHT_WHITE = (242, 242, 242)
 
 
-class AnsiEscapeCodes(IntEnum):
+class AnsiEscapeCodes(enum.IntEnum):
     ResetFormat = 0
     BoldText = 1
     UnderLinedText = 4
@@ -479,7 +479,7 @@ class ParameterSection:
                     if param.envvar and param.value_from_envvar(param.envvar):
                         prefilled_value = param.value_from_envvar(param.envvar)
                     # If it is an Enum - Choice parameter
-                    elif isinstance(param.default, Enum) and isinstance(param.type, click.Choice):
+                    elif isinstance(param.default, enum.Enum) and isinstance(param.type, click.Choice):
                         prefilled_value = str(param.default.value) if param.default else ""
                     # Otherwise, prefill with the default value if any
                     else:
