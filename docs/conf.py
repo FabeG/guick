@@ -1,3 +1,6 @@
+import os
+import sys
+
 # Configuration file for the Sphinx documentation builder.
 #
 # This file only contains a selection of the most common options. For a full
@@ -34,6 +37,10 @@ sys.path.append(os.path.abspath("./_ext"))
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
+    # add copy_button
+    "sphinx_copybutton",
+    # use sphinx-design
+    "sphinx_design",
     # Execute python code blocks
     "execute_python_code",
 ]
@@ -55,9 +62,25 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'alabaster'
+html_theme = 'pydata_sphinx_theme'
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
+
+html_theme_options = {
+    "show_toc_level": 2,
+    "icon_links": [
+        {
+            "name": "GitHub",
+            "url": "https://github.com/FabeG/guick",
+            "icon": "fa-brands fa-github",
+        },
+        {
+            "name": "PyPI",
+            "url": "https://pypi.org/project/guick",
+            "icon": "fa-brands fa-python",
+        },
+    ],
+}

@@ -38,7 +38,10 @@ dev = [
     "pytest-mock>=3.14.0",
 ]
 docs = [
+    "pydata-sphinx-theme>=0.16.1",
     "sphinx>=7.4.7",
+    "sphinx-copybutton>=0.5.2",
+    "sphinx-design>=0.6.1",
 ]
 
 [tool.uv]
