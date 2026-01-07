@@ -713,14 +713,15 @@ class CommandPanel(wx.Panel):
         panels = defaultdict(list)
         user_defined_panels = []
         for param in command.params:
-            if hasattr(param, "rich_help_panel") and (panel_name := param.rich_help_panel):
-                panels[panel_name].append(param)
-                if panel_name not in user_defined_panels:
-                    user_defined_panels.append(panel_name)
-            elif param.required:
-                panels["Required Parameters"].append(param)
-            else:
-                panels["Optional Parameters"].append(param)
+            if (not param.is_eager) and ((hasattr(param, "hidden") and not param.hidden) or (not hasattr(param, "hidden"))):
+                if hasattr(param, "rich_help_panel") and (panel_name := param.rich_help_panel):
+                    panels[panel_name].append(param)
+                    if panel_name not in user_defined_panels:
+                        user_defined_panels.append(panel_name)
+                elif param.required:
+                    panels["Required Parameters"].append(param)
+                else:
+                    panels["Optional Parameters"].append(param)
         list_panels = ["Required Parameters", *user_defined_panels, "Optional Parameters"]
 
         for panel in list_panels:
