@@ -41,6 +41,8 @@ extensions = [
     "sphinx_copybutton",
     # use sphinx-design
     "sphinx_design",
+    # Animated terminal
+    "termynal_ext",
     # Execute python code blocks
     "execute_python_code",
 ]
