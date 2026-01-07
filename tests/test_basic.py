@@ -9,7 +9,7 @@ import click
 import pytest
 from loguru import logger
 
-from guick import gui
+import guick
 import time
 
 
@@ -23,7 +23,7 @@ import time
     ],
 )
 def test_string_option(tmp_path, mocker, args, expect):
-    @click.command(cls=gui.CommandGui)
+    @click.command(cls=guick.CommandGui)
     @click.option("--s", default="no value")
     def cli(s):
         logger.info(f"S:[{s}]")
@@ -36,14 +36,14 @@ def test_string_option(tmp_path, mocker, args, expect):
 
     mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
-    original_init = gui.Guick
+    original_init = guick.Guick
     def init_gui(ctx, size=None):
         guick = original_init(ctx)
         guick.cmd_panels["cli"].entries["s"].SetValue(args)
         guick.cmd_panels["cli"].on_ok_button(None)
         return guick
     mocker.patch("guick.gui.Guick", init_gui)
-    # mocker.patch("guick.gui.Guick.on_close_buttton", lambda: pass)
+    # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
     with pytest.raises(SystemExit):
         cli()
     assert expect in (tmp_path / "logfile.log").read_text(encoding="utf-8")
@@ -58,7 +58,7 @@ def test_string_option(tmp_path, mocker, args, expect):
     ],
 )
 def test_int_option(tmp_path, mocker, args, expect):
-    @click.command(cls=gui.CommandGui)
+    @click.command(cls=guick.CommandGui)
     @click.option("--i", default=42)
     def cli(i):
         logger.info(f"I:[{i * 2}]")
@@ -71,7 +71,7 @@ def test_int_option(tmp_path, mocker, args, expect):
     mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
 
-    original_init = gui.Guick
+    original_init = guick.Guick
     def init_gui(ctx, size=None):
         guick = original_init(ctx)
         guick.cmd_panels["cli"].entries["i"].SetValue(args)
@@ -82,7 +82,7 @@ def test_int_option(tmp_path, mocker, args, expect):
             guick.cmd_panels["cli"].on_close_button(None)
         return guick
     mocker.patch("guick.gui.Guick", init_gui)
-    # mocker.patch("guick.gui.Guick.on_close_buttton", lambda: pass)
+    # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
     with pytest.raises(SystemExit):
         cli()
     assert expect in (tmp_path / "logfile.log").read_text(encoding="utf-8")
@@ -100,7 +100,7 @@ def test_int_option(tmp_path, mocker, args, expect):
     ],
 )
 def test_uuid_option(tmp_path, mocker, args, expect):
-    @click.command(cls=gui.CommandGui)
+    @click.command(cls=guick.CommandGui)
     @click.option(
         "--u", default="ba122011-349f-423b-873b-9d6a79c688ab", type=click.UUID
     )
@@ -115,7 +115,7 @@ def test_uuid_option(tmp_path, mocker, args, expect):
     mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
 
-    original_init = gui.Guick
+    original_init = guick.Guick
     def init_gui(ctx, size=None):
         guick = original_init(ctx)
         guick.cmd_panels["cli"].entries["u"].SetValue(args)
@@ -126,7 +126,7 @@ def test_uuid_option(tmp_path, mocker, args, expect):
             guick.cmd_panels["cli"].on_close_button(None)
         return guick
     mocker.patch("guick.gui.Guick", init_gui)
-    # mocker.patch("guick.gui.Guick.on_close_buttton", lambda: pass)
+    # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
     with pytest.raises(SystemExit):
         cli()
     assert expect in (tmp_path / "logfile.log").read_text(encoding="utf-8")
@@ -141,7 +141,7 @@ def test_uuid_option(tmp_path, mocker, args, expect):
     ],
 )
 def test_float_option(tmp_path, mocker, args, expect):
-    @click.command(cls=gui.CommandGui)
+    @click.command(cls=guick.CommandGui)
     @click.option("--f", default=42.0)
     def cli(f):
         logger.info(f"F:[{f}]")
@@ -154,7 +154,7 @@ def test_float_option(tmp_path, mocker, args, expect):
     mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
 
-    original_init = gui.Guick
+    original_init = guick.Guick
     def init_gui(ctx, size=None):
         guick = original_init(ctx)
         guick.cmd_panels["cli"].entries["f"].SetValue(args)
@@ -165,7 +165,7 @@ def test_float_option(tmp_path, mocker, args, expect):
             guick.cmd_panels["cli"].on_close_button(None)
         return guick
     mocker.patch("guick.gui.Guick", init_gui)
-    # mocker.patch("guick.gui.Guick.on_close_buttton", lambda: pass)
+    # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
     with pytest.raises(SystemExit):
         cli()
     assert expect in (tmp_path / "logfile.log").read_text(encoding="utf-8")
@@ -175,7 +175,7 @@ def test_float_option(tmp_path, mocker, args, expect):
     ("args", "expect", "default"), [(True, "True", True), (False, "False", True)]
 )
 def test_boolean_switch(tmp_path, mocker, args, expect, default):
-    @click.command(cls=gui.CommandGui)
+    @click.command(cls=guick.CommandGui)
     @click.option("--on/--off", default=default)
     def cli(on):
         logger.info(on)
@@ -188,14 +188,14 @@ def test_boolean_switch(tmp_path, mocker, args, expect, default):
     mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
 
-    original_init = gui.Guick
+    original_init = guick.Guick
     def init_gui(ctx, size=None):
         guick = original_init(ctx)
         guick.cmd_panels["cli"].entries["on"].SetValue(args)
         guick.cmd_panels["cli"].on_ok_button(None)
         return guick
     mocker.patch("guick.gui.Guick", init_gui)
-    # mocker.patch("guick.gui.Guick.on_close_buttton", lambda: pass)
+    # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
     with pytest.raises(SystemExit):
         cli()
     assert expect in (tmp_path / "logfile.log").read_text(encoding="utf-8")
@@ -203,7 +203,7 @@ def test_boolean_switch(tmp_path, mocker, args, expect, default):
 @pytest.mark.parametrize("default", [True, False])
 @pytest.mark.parametrize(("args", "expect"), [(True, "True"), (False, "False")])
 def test_boolean_flag(tmp_path, mocker, default, args, expect):
-    @click.command(cls=gui.CommandGui)
+    @click.command(cls=guick.CommandGui)
     @click.option("--f", is_flag=True, default=default)
     def cli(f):
         logger.info(f)
@@ -216,14 +216,14 @@ def test_boolean_flag(tmp_path, mocker, default, args, expect):
     mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
 
-    original_init = gui.Guick
+    original_init = guick.Guick
     def init_gui(ctx, size=None):
         guick = original_init(ctx)
         guick.cmd_panels["cli"].entries["f"].SetValue(args)
         guick.cmd_panels["cli"].on_ok_button(None)
         return guick
     mocker.patch("guick.gui.Guick", init_gui)
-    # mocker.patch("guick.gui.Guick.on_close_buttton", lambda: pass)
+    # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
     with pytest.raises(SystemExit):
         cli()
     assert expect in (tmp_path / "logfile.log").read_text(encoding="utf-8")
@@ -237,7 +237,7 @@ def test_boolean_flag(tmp_path, mocker, default, args, expect):
         ]
 )
 def test_boolean_conversion(tmp_path, mocker, value, expect):
-    @click.command(cls=gui.CommandGui)
+    @click.command(cls=guick.CommandGui)
     @click.option("--flag", type=bool)
     def cli(flag):
         logger.info(flag)
@@ -250,26 +250,26 @@ def test_boolean_conversion(tmp_path, mocker, value, expect):
     mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
 
-    original_init = gui.Guick
+    original_init = guick.Guick
     def init_gui(ctx, size=None):
         guick = original_init(ctx)
         guick.cmd_panels["cli"].entries["flag"].SetValue(value)
         guick.cmd_panels["cli"].on_ok_button(None)
         return guick
     mocker.patch("guick.gui.Guick", init_gui)
-    # mocker.patch("guick.gui.Guick.on_close_buttton", lambda: pass)
+    # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
     with pytest.raises(SystemExit):
         cli()
     assert expect in (tmp_path / "logfile.log").read_text(encoding="utf-8")
 
 
 def test_file_option(tmp_path, mocker):
-    @click.command(cls=gui.CommandGui)
+    @click.command(cls=guick.CommandGui)
     @click.option("--file", type=click.File("w"))
     def cli_input(file):
         file.write("Hello World!\n")
 
-    @click.command(cls=gui.CommandGui)
+    @click.command(cls=guick.CommandGui)
     @click.option("--file", type=click.File("r"))
     def cli_output(file):
         logger.info(file.read())
@@ -282,14 +282,14 @@ def test_file_option(tmp_path, mocker):
     mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
 
-    original_init = gui.Guick
+    original_init = guick.Guick
     def init_gui(ctx, size=None):
         guick = original_init(ctx)
         guick.cmd_panels[list(guick.cmd_panels.keys())[0]].entries["file"].SetValue(str(tmp_path / "example.txt"))
         guick.cmd_panels[list(guick.cmd_panels.keys())[0]].on_ok_button(None)
         return guick
     mocker.patch("guick.gui.Guick", init_gui)
-    # mocker.patch("guick.gui.Guick.on_close_buttton", lambda: pass)
+    # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
     with pytest.raises(SystemExit):
         cli_input()
     with pytest.raises(SystemExit):
@@ -298,7 +298,7 @@ def test_file_option(tmp_path, mocker):
 
 
 def test_path_option(tmp_path, mocker):
-    @click.command(cls=gui.CommandGui)
+    @click.command(cls=guick.CommandGui)
     @click.option("-O", type=click.Path(file_okay=False, exists=True, writable=True))
     def write_to_dir(o):
         with open(tmp_path / o / "foo.txt", "wb") as f:
@@ -314,7 +314,7 @@ def test_path_option(tmp_path, mocker):
     mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
 
-    original_init = gui.Guick
+    original_init = guick.Guick
     def init_gui(ctx, size=None):
         guick = original_init(ctx)
         logger.info(list(guick.cmd_panels.keys()))
@@ -322,7 +322,7 @@ def test_path_option(tmp_path, mocker):
         guick.cmd_panels["write-to-dir"].on_ok_button(None)
         return guick
     mocker.patch("guick.gui.Guick", init_gui)
-    # mocker.patch("guick.gui.Guick.on_close_buttton", lambda: pass)
+    # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
     with pytest.raises(SystemExit):
         write_to_dir()
     assert "meh" in (tmp_path / "test" / "foo.txt").read_text(encoding="utf-8")
@@ -338,14 +338,14 @@ def test_path_option(tmp_path, mocker):
             guick.cmd_panels["write-to-dir"].on_close_button(None)
         return guick
     mocker.patch("guick.gui.Guick", init_gui_second)
-    # mocker.patch("guick.gui.Guick.on_close_buttton", lambda: pass)
+    # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
     with pytest.raises(SystemExit):
         write_to_dir()
     assert "is a file" in (tmp_path / "logfile.log").read_text(encoding="utf-8")
 
 
 def test_path_option_2(tmp_path, mocker):
-    @click.command(cls=gui.CommandGui)
+    @click.command(cls=guick.CommandGui)
     @click.option("-f", type=click.Path(exists=True))
     def showtype(f):
         logger.info(f"is_file={os.path.isfile(f)}")
@@ -359,7 +359,7 @@ def test_path_option_2(tmp_path, mocker):
     mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
 
-    original_init = gui.Guick
+    original_init = guick.Guick
     def init_gui(ctx, size=None):
         guick = original_init(ctx)
         guick.cmd_panels["showtype"].entries["f"].SetValue("xxx")
@@ -395,7 +395,7 @@ def test_path_option_2(tmp_path, mocker):
     ],
 )
 def test_path_option_3(tmp_path, mocker, args, expect):
-    @click.command(cls=gui.CommandGui)
+    @click.command(cls=guick.CommandGui)
     @click.option("-f", type=click.Path())
     def exists(f):
         logger.info(f"exists={os.path.exists(f)}")
@@ -408,7 +408,7 @@ def test_path_option_3(tmp_path, mocker, args, expect):
     mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
 
-    original_init = gui.Guick
+    original_init = guick.Guick
     def init_gui_new(ctx, size=None):
         guick = original_init(ctx)
         guick.cmd_panels["exists"].entries["f"].SetValue(args)
@@ -429,7 +429,7 @@ def test_path_option_3(tmp_path, mocker, args, expect):
     ],
 )
 def test_choice_option(tmp_path, mocker, args, expect):
-    @click.command(cls=gui.CommandGui)
+    @click.command(cls=guick.CommandGui)
     @click.option("--method", type=click.Choice(["foo", "bar", "baz"]))
     def cli(method):
         logger.info(f"S:[{method}]")
@@ -442,7 +442,7 @@ def test_choice_option(tmp_path, mocker, args, expect):
     mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
 
-    original_init = gui.Guick
+    original_init = guick.Guick
     def init_gui(ctx, size=None):
         guick = original_init(ctx)
         guick.cmd_panels["cli"].entries["method"].SetValue(args)
@@ -453,7 +453,7 @@ def test_choice_option(tmp_path, mocker, args, expect):
             guick.cmd_panels["cli"].on_close_button(None)
         return guick
     mocker.patch("guick.gui.Guick", init_gui)
-    # mocker.patch("guick.gui.Guick.on_close_buttton", lambda: pass)
+    # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
     with pytest.raises(SystemExit):
         cli()
     assert expect in (tmp_path / "logfile.log").read_text(encoding="utf-8")
@@ -467,7 +467,7 @@ def test_choice_option(tmp_path, mocker, args, expect):
     ],
 )
 def test_choice_argument(tmp_path, mocker, args, expect):
-    @click.command(cls=gui.CommandGui)
+    @click.command(cls=guick.CommandGui)
     @click.argument("method", type=click.Choice(["foo", "bar", "baz"]))
     def cli(method):
         logger.info(f"S:[{method}]")
@@ -480,7 +480,7 @@ def test_choice_argument(tmp_path, mocker, args, expect):
     mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
 
-    original_init = gui.Guick
+    original_init = guick.Guick
     def init_gui(ctx, size=None):
         guick = original_init(ctx)
         guick.cmd_panels["cli"].entries["method"].SetValue(args)
@@ -491,7 +491,7 @@ def test_choice_argument(tmp_path, mocker, args, expect):
             guick.cmd_panels["cli"].on_close_button(None)
         return guick
     mocker.patch("guick.gui.Guick", init_gui)
-    # mocker.patch("guick.gui.Guick.on_close_buttton", lambda: pass)
+    # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
     with pytest.raises(SystemExit):
         cli()
     assert expect in (tmp_path / "logfile.log").read_text(encoding="utf-8")
@@ -511,7 +511,7 @@ def test_choice_argument_enum(tmp_path, mocker, args, expect):
         BAR = "bar-value"
         BAZ = "baz-value"
 
-    @click.command(cls=gui.CommandGui)
+    @click.command(cls=guick.CommandGui)
     @click.argument("method", type=click.Choice(MyEnum, case_sensitive=False))
     def cli(method: MyEnum):
         assert isinstance(method, MyEnum)
@@ -527,7 +527,7 @@ def test_choice_argument_enum(tmp_path, mocker, args, expect):
     mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
 
-    original_init = gui.Guick
+    original_init = guick.Guick
     def init_gui(ctx, size=None):
         guick = original_init(ctx)
         guick.cmd_panels["cli"].entries["method"].SetValue(args)
@@ -538,7 +538,7 @@ def test_choice_argument_enum(tmp_path, mocker, args, expect):
             guick.cmd_panels["cli"].on_close_button(None)
         return guick
     mocker.patch("guick.gui.Guick", init_gui)
-    # mocker.patch("guick.gui.Guick.on_close_buttton", lambda: pass)
+    # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
     with pytest.raises(SystemExit):
         cli()
     assert expect in (tmp_path / "logfile.log").read_text(encoding="utf-8")
@@ -560,7 +560,7 @@ def test_choice_argument_custom_type(tmp_path, mocker, args, expect):
         def __str__(self) -> str:
             return self.value
 
-    @click.command(cls=gui.CommandGui)
+    @click.command(cls=guick.CommandGui)
     @click.argument("method", type=click.Choice([MyClass("foo"), MyClass("bar"), MyClass("baz")]))
     def cli(method: MyClass):
         assert isinstance(method, MyClass)
@@ -576,7 +576,7 @@ def test_choice_argument_custom_type(tmp_path, mocker, args, expect):
     mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
 
-    original_init = gui.Guick
+    original_init = guick.Guick
     def init_gui(ctx, size=None):
         guick = original_init(ctx)
         guick.cmd_panels["cli"].entries["method"].SetValue(args)
@@ -587,7 +587,7 @@ def test_choice_argument_custom_type(tmp_path, mocker, args, expect):
             guick.cmd_panels["cli"].on_close_button(None)
         return guick
     mocker.patch("guick.gui.Guick", init_gui)
-    # mocker.patch("guick.gui.Guick.on_close_buttton", lambda: pass)
+    # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
     with pytest.raises(SystemExit):
         cli()
     assert expect in (tmp_path / "logfile.log").read_text(encoding="utf-8")
@@ -602,7 +602,7 @@ def test_choice_argument_custom_type(tmp_path, mocker, args, expect):
     ],
 )
 def test_datetime_option_default(tmp_path, mocker, args, expect):
-    @click.command(cls=gui.CommandGui)
+    @click.command(cls=guick.CommandGui)
     @click.option("--start_date", type=click.DateTime())
     def cli(start_date):
         logger.info(start_date.strftime("%Y-%m-%dT%H:%M:%S"))
@@ -614,7 +614,7 @@ def test_datetime_option_default(tmp_path, mocker, args, expect):
     mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
 
-    original_init = gui.Guick
+    original_init = guick.Guick
     def init_gui(ctx, size=None):
         guick = original_init(ctx)
         guick.cmd_panels["cli"].entries["start_date"].SetValue(args)
@@ -625,14 +625,14 @@ def test_datetime_option_default(tmp_path, mocker, args, expect):
             guick.cmd_panels["cli"].on_close_button(None)
         return guick
     mocker.patch("guick.gui.Guick", init_gui)
-    # mocker.patch("guick.gui.Guick.on_close_buttton", lambda: pass)
+    # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
     with pytest.raises(SystemExit):
         cli()
     assert expect in (tmp_path / "logfile.log").read_text(encoding="utf-8")
 
 
 def test_datetime_option_custom(tmp_path, mocker):
-    @click.command(cls=gui.CommandGui)
+    @click.command(cls=guick.CommandGui)
     @click.option("--start_date", type=click.DateTime(formats=["%A %B %d, %Y"]))
     def cli(start_date):
         logger.info(start_date.strftime("%Y-%m-%dT%H:%M:%S"))
@@ -645,14 +645,14 @@ def test_datetime_option_custom(tmp_path, mocker):
     mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
 
-    original_init = gui.Guick
+    original_init = guick.Guick
     def init_gui(ctx, size=None):
         guick = original_init(ctx)
         guick.cmd_panels["cli"].entries["start_date"].SetValue("Wednesday June 05, 2010")
         guick.cmd_panels["cli"].on_ok_button(None)
         return guick
     mocker.patch("guick.gui.Guick", init_gui)
-    # mocker.patch("guick.gui.Guick.on_close_buttton", lambda: pass)
+    # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
     with pytest.raises(SystemExit):
         cli()
     assert "2010-06-05T00:00:00" in (tmp_path / "logfile.log").read_text(encoding="utf-8")
