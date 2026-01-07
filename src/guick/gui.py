@@ -21,7 +21,12 @@ import wx.html
 import wx.lib.scrolledpanel as scrolled
 from wx.lib.newevent import NewEvent
 
-from click._utils import UNSET
+try:
+    # Click 8.3+
+    from click._utils import UNSET
+except ImportError:
+    # Click <8.3
+    UNSET = None
 
 
 # Regex pattern to match ANSI escape sequences
@@ -480,10 +485,10 @@ class ParameterSection:
                         prefilled_value = param.value_from_envvar(param.envvar)
                     # If it is an Enum - Choice parameter
                     elif isinstance(param.default, enum.Enum) and isinstance(param.type, click.Choice):
-                        prefilled_value = str(param.default.value) if param.default else ""
+                        prefilled_value = str(param.default.value) if param.default is not UNSET else ""
                     # Otherwise, prefill with the default value if any
                     else:
-                        prefilled_value = str(param.default) if param.default and repr(param.default) != "Sentinel.UNSET" else ""
+                        prefilled_value = str(param.default) if param.default is not UNSET else ""
 
                 # File
                 if isinstance(param.type, click.File) or (isinstance(param.type, click.Path) and param.type.file_okay):
