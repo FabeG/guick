@@ -24,6 +24,8 @@ author = 'FabeG'
 # The full version, including alpha/beta/rc tags
 release = '0.5'
 
+sys.path.append(os.path.abspath("./_ext"))
+
 
 # -- General configuration ---------------------------------------------------
 
@@ -32,6 +34,8 @@ release = '0.5'
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
+    # Execute python code blocks
+    "execute_python_code",
 ]
 
 # This prevents Sphinx from actually importing wx
