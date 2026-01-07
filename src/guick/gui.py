@@ -330,11 +330,11 @@ class NormalEntry:
         # Password
         if hasattr(self.param, "hide_input") and self.param.hide_input:
             self.entry = wx.TextCtrl(
-                self.parent, -1, size=(500, -1), style=wx.TE_RICH | wx.TE_PASSWORD
+                self.parent, -1, size=(500, -1), style= wx.TE_PASSWORD
             )
         # Normal case
         else:
-            self.entry = wx.TextCtrl(self.parent, -1, size=(500, -1), style=wx.TE_RICH)
+            self.entry = wx.TextCtrl(self.parent, -1, size=(500, -1))
         self.entry.SetMinSize(self.min_size)
         if self.default_text:
             self.entry.SetValue(self.default_text)
@@ -361,7 +361,7 @@ class ChoiceEntry(NormalEntry):
                 if isinstance(choice, enum.Enum)
                 else str(choice)
                 for choice in self.param.type.choices
-            ]
+            ],
         )
         self.entry.SetMinSize(self.min_size)
         if self.default_text:
