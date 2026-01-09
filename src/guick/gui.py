@@ -1,6 +1,6 @@
 import contextlib
-from collections import defaultdict
 import datetime
+import enum
 import io
 import math
 import os
@@ -9,7 +9,7 @@ import sys
 import time
 import typing as t
 import webbrowser
-import enum
+from collections import defaultdict
 from pathlib import Path
 from threading import Thread
 
@@ -17,6 +17,7 @@ import click
 import platformdirs
 import tomlkit
 import wx
+import wx.adv
 import wx.html
 import wx.lib.scrolledpanel as scrolled
 from wx.lib.newevent import NewEvent
@@ -301,6 +302,63 @@ class RedirectText:
 
     def flush(self):
         pass
+
+
+class NavButton(wx.Panel):
+    """Custom navigation button for sidebar"""
+    def __init__(self, parent, label, icon=None):
+        super().__init__(parent)
+        self.selected = False
+        self.label = label
+
+        self.SetBackgroundColour(wx.Colour(243, 243, 243))
+
+        sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        # Icon (using text as placeholder)
+        if icon:
+            icon_text = wx.StaticText(self, label=icon)
+            font = icon_text.GetFont()
+            font.PointSize += 2
+            icon_text.SetFont(font)
+            sizer.Add(icon_text, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 15)
+
+        # Label
+        text = wx.StaticText(self, label=label)
+        sizer.Add(text, 1, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 10)
+
+        self.SetSizer(sizer)
+        self.SetMinSize((-1, 50))
+
+        # Bind events for hover and click
+        self.Bind(wx.EVT_ENTER_WINDOW, self.on_hover)
+        self.Bind(wx.EVT_LEAVE_WINDOW, self.on_leave)
+        self.Bind(wx.EVT_LEFT_DOWN, self.on_click)
+
+        for child in self.GetChildren():
+            child.Bind(wx.EVT_LEFT_DOWN, self.on_click)
+
+    def on_hover(self, event):
+        if not self.selected:
+            self.SetBackgroundColour(wx.Colour(230, 230, 230))
+            self.Refresh()
+
+    def on_leave(self, event):
+        if not self.selected:
+            self.SetBackgroundColour(wx.Colour(243, 243, 243))
+            self.Refresh()
+
+    def on_click(self, event):
+        event = wx.PyCommandEvent(wx.EVT_BUTTON.typeId, self.GetId())
+        wx.PostEvent(self.GetEventHandler(), event)
+
+    def set_selected(self, selected):
+        self.selected = selected
+        if selected:
+            self.SetBackgroundColour(wx.Colour(220, 220, 220))
+        else:
+            self.SetBackgroundColour(wx.Colour(243, 243, 243))
+        self.Refresh()
 
 
 class NormalEntry:
@@ -681,21 +739,15 @@ class ParameterSection:
 
 
 class CommandPanel(wx.Panel):
-    def __init__(self, parent, ctx, name, history_file):
-        super().__init__(parent, -1)
+    def __init__(self, parent, ctx, name, config):
+        super().__init__(parent)
+        self.SetBackgroundColour(wx.WHITE)
         self.entries = {}
         self.text_errors = {}
         self.history_file = history_file
         self.ctx = ctx
         self.command_name = name
-
-        # Load the history file if it exists
-        self.config = tomlkit.document()
-        try:
-            with open(self.history_file, encoding="utf-8") as fp:
-                self.config = tomlkit.load(fp)
-        except FileNotFoundError:
-            pass
+        self.config = config
 
         # Get the command
         try:
@@ -737,91 +789,8 @@ class CommandPanel(wx.Panel):
                 self.entries.update(self.sections.entry)
                 self.text_errors.update(self.sections.text_error)
 
-        # Buttons OK / Close at the bottom
-        hbox = wx.BoxSizer(wx.HORIZONTAL)
-        ok_button = wx.Button(self, -1, label="Ok")
-        hbox.Add(
-            ok_button,
-            flag=wx.BOTTOM | wx.RIGHT,
-            border=2,
-        )
-        ok_button.Bind(wx.EVT_BUTTON, self.on_ok_button)
-
-        cancel_button = wx.Button(self, label="Cancel")
-        hbox.Add(
-            cancel_button,
-            flag=wx.BOTTOM | wx.LEFT,
-            border=2,
-        )
-        cancel_button.Bind(wx.EVT_BUTTON, self.on_close_button)
-        main_boxsizer.Add(hbox, 0, wx.ALIGN_RIGHT | wx.RIGHT | wx.TOP, 10)
         self.SetSizerAndFit(main_boxsizer)
 
-    def on_close_button(self, event):
-        sys.exit()
-
-    def on_ok_button(self, event):
-
-        # If the command section does not exist in the history file, create it
-        if self.command_name and self.command_name not in self.config:
-            script_history = tomlkit.table()
-            self.config.add(self.command_name, script_history)
-
-        opts = {
-            key: entry.GetValue() if entry.GetValue() != "" else UNSET
-            for key, entry in self.entries.items()
-        }
-        # hidden_opts = {
-        #     param.name: param.default for param in self.ctx.command.params if param.hidden
-        # }
-        # opts = {**opts, **hidden_opts}
-        args = []
-        errors = {}
-        # Get the selected command
-        try:
-            selected_command = self.ctx.command.commands.get(self.command_name)
-        except AttributeError:
-            selected_command = self.ctx.command
-
-        # Parse parameters and save errors if any
-        self.ctx.params = {}
-        for param in selected_command.params:
-            try:
-                _, args = param.handle_parse_result(self.ctx, opts, args)
-            except Exception as exc:
-                errors[exc.param.name] = exc
-
-        # Display errors if any
-        for param in selected_command.params:
-            if (hasattr(param, "hidden") and not param.hidden) or (not hasattr(param, "hidden")):
-                if errors.get(param.name):
-                    self.text_errors[param.name].SetLabel(str(errors[param.name]))
-                    self.text_errors[param.name].SetToolTip(str(errors[param.name]))
-                else:
-                    with contextlib.suppress(KeyError):
-                        self.text_errors[param.name].SetLabel("")
-
-        # If there are errors, we stop here
-        if errors:
-            return
-
-        # Save the parameters to the history file
-        for param in selected_command.params:
-            with contextlib.suppress(KeyError):
-                self.config[self.command_name][param.name] = self.entries[
-                    param.name
-                ].GetValue()
-        with open(self.history_file, mode="w", encoding="utf-8") as fp:
-            tomlkit.dump(self.config, fp)
-
-        if args and not self.ctx.allow_extra_args and not self.ctx.resilient_parsing:
-            event.GetEventObject().Enable()
-            raise Exception("unexpected argument")
-
-        # Invoke the command in a separate thread to avoid blocking the GUI
-        self.ctx.args = args
-        self.thread = Thread(target=selected_command.invoke, args=(self.ctx,), daemon=True)
-        self.thread.start()
 
 
 class Guick(wx.Frame):
@@ -830,6 +799,170 @@ class Guick(wx.Frame):
         self.ctx = ctx
         self.cmd_panels = {}
 
+        # Create the menu bar
+        self.create_help_menu()
+
+        # Set history file name
+        history_folder = Path(platformdirs.user_config_dir("history", "guick")) / ctx.info_name
+        history_folder.mkdir(parents=True, exist_ok=True)
+        self.history_file = history_folder / "history.toml"
+
+        # Load the history file if it exists
+        self.config = tomlkit.document()
+        try:
+            with open(self.history_file, encoding="utf-8") as fp:
+                self.config = tomlkit.load(fp)
+        except FileNotFoundError:
+            pass
+
+        # If it is a group, create a right sidebar showing the commands
+        if isinstance(ctx.command, click.Group):
+
+            # Main sizer
+            main_sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+            nav_panel = self.create_left_sidebar()
+
+            # Create the panels for each command
+            self.content_panel = self.create_parameters_panels()
+
+            # Create the OK/Cancel buttons
+            button_panel = self.create_ok_cancel_buttons()
+
+            # Add panels to main sizer
+            main_sizer.Add(nav_panel, 0, wx.EXPAND)
+            main_sizer.Add(self.content_panel, 1, wx.EXPAND)
+
+            # Add everything to vertical sizer
+            outer_sizer = wx.BoxSizer(wx.VERTICAL)
+            outer_sizer.Add(main_sizer, 1, wx.EXPAND)
+            outer_sizer.Add(button_panel, 0, wx.EXPAND)
+
+            # Show first panel by default
+            self.show_panel(list(self.ctx.command.commands.keys())[0])
+
+        # Otherwise, create a single panel
+        else:
+            outer_sizer = wx.BoxSizer(wx.VERTICAL)
+            self.panel = wx.Panel(
+                self,
+                -1,
+                style=wx.DEFAULT_FRAME_STYLE | wx.CLIP_CHILDREN | wx.FULL_REPAINT_ON_RESIZE,
+            )
+            # Create the OK/Cancel buttons
+            button_panel = self.create_ok_cancel_buttons()
+            parent = self
+            command = ctx.command
+            panel = CommandPanel(parent, ctx, "", self.config)
+            self.cmd_panels[ctx.command.name] = panel
+            outer_sizer.Add(panel, 0, wx.EXPAND | wx.ALL, 1)
+            outer_sizer.Add(button_panel, 0, wx.EXPAND)
+
+        # # Create the log
+        self.log_panel = LogPanel(self)
+        outer_sizer.Add(self.log_panel, 1, flag=wx.EXPAND | wx.ALL, border=2)
+        sys.stdout = RedirectText(self.log_panel.log_ctrl)
+        self.SetSizerAndFit(outer_sizer)
+        # self.Fit()
+        # Set the minimum size to the fitted size
+        self.SetMinClientSize(self.GetClientSize())
+
+        # If a larger size is specified, apply it
+        if size:
+            current_size = self.GetClientSize()
+            new_width = max(size[0], current_size.width) if size[0] != -1 else current_size.width
+            new_height = max(size[1], current_size.height) if size[1] != -1 else current_size.height
+            self.SetClientSize((new_width, new_height))
+
+        self.CreateStatusBar()
+        self.SetStatusText("")
+
+        self.Centre()
+
+        self.Bind(wx.EVT_CLOSE, self.on_exit)
+
+    def create_parameters_panels(self):
+        # Right panel for content
+        content_panel = wx.Panel(self)
+        content_panel.SetBackgroundColour(wx.WHITE)
+        content_sizer = wx.BoxSizer(wx.VERTICAL)
+
+        for name in self.ctx.command.commands:
+            command = self.ctx.command.commands.get(name)
+            panel = CommandPanel(content_panel, self.ctx, name, self.config)
+            panel.Hide()
+            self.cmd_panels[name] = panel
+            content_sizer.Add(panel, 1, wx.EXPAND)
+
+        content_panel.SetSizer(content_sizer)
+        return content_panel
+
+    def create_ok_cancel_buttons(self):
+        # Button panel at the bottom
+        button_panel = wx.Panel(self)
+        button_panel.SetBackgroundColour(wx.Colour(240, 240, 240))
+        button_sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        button_sizer.AddStretchSpacer()
+
+        ok_btn = wx.Button(button_panel, wx.ID_OK, "OK")
+        cancel_btn = wx.Button(button_panel, wx.ID_CANCEL, "Cancel")
+
+        ok_btn.Bind(wx.EVT_BUTTON, self.on_ok_button)
+        cancel_btn.Bind(wx.EVT_BUTTON, self.on_close_button)
+
+        button_sizer.Add(ok_btn, 0, wx.ALL, 10)
+        button_sizer.Add(cancel_btn, 0, wx.TOP | wx.BOTTOM | wx.RIGHT, 10)
+
+        button_panel.SetSizer(button_sizer)
+        return button_panel
+
+    def create_left_sidebar(self):
+
+        # Left sidebar for navigation
+        nav_panel = wx.Panel(self)
+        nav_panel.SetBackgroundColour(wx.Colour(243, 243, 243))
+        nav_panel.SetMinSize((250, -1))
+
+        nav_sizer = wx.BoxSizer(wx.VERTICAL)
+
+        # Add title to sidebar
+        title = wx.StaticText(nav_panel, label="Commands")
+        font = title.GetFont()
+        font.PointSize += 2
+        font = font.Bold()
+        title.SetFont(font)
+        nav_sizer.Add(title, 0, wx.ALL, 5)
+
+        # Navigation buttons
+        self.nav_buttons = []
+        self.cmd_panels = {}
+        for name in self.ctx.command.commands:
+            btn = NavButton(nav_panel, name)
+            btn.Bind(wx.EVT_BUTTON, lambda e, panel_name=name: self.show_panel(panel_name))
+            nav_sizer.Add(btn, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 5)
+            self.nav_buttons.append((name, btn))
+
+        nav_panel.SetSizer(nav_sizer)
+        return nav_panel
+
+    def show_panel(self, panel_name):
+        """Switch to the selected panel"""
+        # Hide all panels
+        for name, panel in self.cmd_panels.items():
+            panel.Hide()
+        
+        # Show selected panel
+        if panel_name in self.cmd_panels:
+            self.cmd_panels[panel_name].Show()
+        
+        # Update button selection
+        for name, btn in self.nav_buttons:
+            btn.set_selected(name == panel_name)
+        
+        self.content_panel.Layout()
+
+    def create_help_menu(self):
         # Create Help menu
         menubar = wx.MenuBar()
         help_menu = wx.Menu()
@@ -838,10 +971,9 @@ class Guick(wx.Frame):
         self.Bind(wx.EVT_MENU, self.on_help, help_item)
 
         # If version option defined, add a version menu
-        version_option = False
         if any(
             param.name == "version" and param.is_eager
-            for param in ctx.command.params
+            for param in self.ctx.command.params
         ):
             # Get version before redirecting stdout
             self.version = self.get_version()
@@ -852,62 +984,6 @@ class Guick(wx.Frame):
 
         menubar.Append(help_menu, '&Help')
         self.SetMenuBar(menubar)
-
-        # Set history file name
-        history_folder = Path(platformdirs.user_config_dir("history", "guick")) / ctx.info_name
-        history_folder.mkdir(parents=True, exist_ok=True)
-        self.history_file = history_folder / "history.toml"
-
-        self.panel = wx.Panel(
-            self,
-            -1,
-            style=wx.DEFAULT_FRAME_STYLE | wx.CLIP_CHILDREN | wx.FULL_REPAINT_ON_RESIZE,
-        )
-        vbox = wx.BoxSizer(wx.VERTICAL)
-        # If it is a group, create a notebook for each command
-        if isinstance(ctx.command, click.Group):
-            self.notebook = wx.Notebook(self.panel, -1)
-            parent = self.notebook
-            for name in ctx.command.commands:
-                command = ctx.command.commands.get(name)
-                panel = CommandPanel(parent, ctx, name, self.history_file)
-                self.notebook.AddPage(panel, name, 1, 0)
-                self.cmd_panels[name] = panel
-                self.panel.SetBackgroundColour(wx.Colour((240, 240, 240, 255)))
-            font = wx.Font(wx.FontInfo(14).Bold())
-            self.notebook.SetFont(font)
-            vbox.Add(self.notebook, 0, wx.EXPAND | wx.ALL, 10)
-        # Otherwise, create a single panel
-        else:
-            parent = self.panel
-            command = ctx.command
-            panel = CommandPanel(parent, ctx, "", self.history_file)
-            self.cmd_panels[ctx.command.name] = panel
-            vbox.Add(panel, 0, wx.EXPAND | wx.ALL, 10)
-
-        # # Create the log
-        self.log_panel = LogPanel(self.panel)
-        vbox.Add(self.log_panel, 1, flag=wx.EXPAND | wx.ALL, border=10)
-        sys.stdout = RedirectText(self.log_panel.log_ctrl)
-        self.panel.SetSizerAndFit(vbox)
-        self.Fit()
-        # Set the minimum size to the fitted size
-        self.SetMinClientSize(self.GetClientSize())
-        
-        # If a larger size is specified, apply it
-        if size:
-            current_size = self.GetClientSize()
-            new_width = max(size[0], current_size.width) if size[0] != -1 else current_size.width
-            new_height = max(size[1], current_size.height) if size[1] != -1 else current_size.height
-            self.SetClientSize((new_width, new_height))
-        
-
-        self.CreateStatusBar()
-        self.SetStatusText("")
-
-        self.Centre()
-
-        self.Bind(wx.EVT_CLOSE, self.on_exit)
 
     def on_exit(self, event):
         # Destroys the main frame which quits the wxPython application
@@ -947,7 +1023,73 @@ class Guick(wx.Frame):
         dlg = AboutDialog(self, "About", head, self.version, font="monospace")
         dlg.Show()
 
+    def on_close_button(self, event):
+        sys.exit()
 
+    def on_ok_button(self, event):
+
+        sel_cmd_name, sel_cmd_panel = [(name, cmd_panel) for name, cmd_panel in self.cmd_panels.items() if cmd_panel.IsShown()][0]
+
+        # If the command section does not exist in the history file, create it
+        if sel_cmd_name and sel_cmd_name not in self.config:
+            script_history = tomlkit.table()
+            self.config.add(sel_cmd_name, script_history)
+
+        opts = {
+            key: entry.GetValue() if entry.GetValue() != "" else UNSET
+            for key, entry in sel_cmd_panel.entries.items()
+        }
+        # hidden_opts = {
+        #     param.name: param.default for param in self.ctx.command.params if param.hidden
+        # }
+        # opts = {**opts, **hidden_opts}
+        args = []
+        errors = {}
+        # Get the selected command
+        try:
+            selected_command = self.ctx.command.commands.get(sel_cmd_name)
+        except AttributeError:
+            selected_command = self.ctx.command
+
+        # Parse parameters and save errors if any
+        self.ctx.params = {}
+        for param in selected_command.params:
+            try:
+                _, args = param.handle_parse_result(self.ctx, opts, args)
+            except Exception as exc:
+                errors[exc.param.name] = exc
+
+        # Display errors if any
+        for param in selected_command.params:
+            if (hasattr(param, "hidden") and not param.hidden) or (not hasattr(param, "hidden")):
+                if errors.get(param.name):
+                    sel_cmd_panel.text_errors[param.name].SetLabel("‼️ " + str(errors[param.name]))
+                    sel_cmd_panel.text_errors[param.name].SetToolTip(str(errors[param.name]))
+                else:
+                    with contextlib.suppress(KeyError):
+                        sel_cmd_panel.text_errors[param.name].SetLabel("")
+
+        # If there are errors, we stop here
+        if errors:
+            return
+
+        # Save the parameters to the history file
+        for param in selected_command.params:
+            with contextlib.suppress(KeyError):
+                self.config[sel_cmd_name][param.name] = sel_cmd_panel.entries[
+                    param.name
+                ].GetValue()
+        with open(self.history_file, mode="w", encoding="utf-8") as fp:
+            tomlkit.dump(self.config, fp)
+
+        if args and not self.ctx.allow_extra_args and not self.ctx.resilient_parsing:
+            event.GetEventObject().Enable()
+            raise Exception("unexpected argument")
+
+        # Invoke the command in a separate thread to avoid blocking the GUI
+        self.ctx.args = args
+        self.thread = Thread(target=selected_command.invoke, args=(self.ctx,), daemon=True)
+        self.thread.start()
 
 
 class GroupGui(click.Group):
