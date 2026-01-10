@@ -31,7 +31,7 @@ except ImportError:
 
 
 # Regex pattern to match ANSI escape sequences
-ANSI_ESCAPE_PATTERN = re.compile(r'\x1b\[((?:\d+;)*\d+)m')
+ANSI_ESCAPE_PATTERN = re.compile(r"\x1b\[((?:\d+;)*\d+)m")
 
 
 # Windows Terminal Colors
@@ -111,11 +111,20 @@ class ANSITextCtrl(wx.TextCtrl):
         for match in ANSI_ESCAPE_PATTERN.finditer(message):
             # Add text before the ANSI code
             if match.start() > last_end:
-                segments.append((message[last_end:match.start()], current_fg, current_bg, underline, bold_fg, bold_bg))
+                segments.append(
+                    (
+                        message[last_end : match.start()],
+                        current_fg,
+                        current_bg,
+                        underline,
+                        bold_fg,
+                        bold_bg,
+                    )
+                )
 
             # Extract and interpret ANSI code parameters
             params_str = match.group(1)
-            params = [int(p) for p in params_str.split(';') if p]
+            params = [int(p) for p in params_str.split(";") if p]
             for param in params:
                 # Process ANSI parameters
                 if param == AnsiEscapeCodes.ResetFormat:
@@ -128,22 +137,53 @@ class ANSITextCtrl(wx.TextCtrl):
                     underline = True
                 elif param == AnsiEscapeCodes.BoldText:
                     bold_fg = True
-                elif AnsiEscapeCodes.BackgroundColorStart <= param <= AnsiEscapeCodes.BackgroundColorEnd:
-                    current_bg = ANSI_COLORS[param - AnsiEscapeCodes.BackgroundColorStart]
-                elif AnsiEscapeCodes.TextColorStart <= param <= AnsiEscapeCodes.TextColorEnd:
+                elif (
+                    AnsiEscapeCodes.BackgroundColorStart
+                    <= param
+                    <= AnsiEscapeCodes.BackgroundColorEnd
+                ):
+                    current_bg = ANSI_COLORS[
+                        param - AnsiEscapeCodes.BackgroundColorStart
+                    ]
+                elif (
+                    AnsiEscapeCodes.TextColorStart
+                    <= param
+                    <= AnsiEscapeCodes.TextColorEnd
+                ):
                     current_fg = ANSI_COLORS[param - AnsiEscapeCodes.TextColorStart]
-                elif AnsiEscapeCodes.BackgroundBrightColorStart <= param <= AnsiEscapeCodes.BackgroundBrightColorEnd:
-                    current_bg = ANSI_COLORS[param - AnsiEscapeCodes.BackgroundBrightColorStart]
+                elif (
+                    AnsiEscapeCodes.BackgroundBrightColorStart
+                    <= param
+                    <= AnsiEscapeCodes.BackgroundBrightColorEnd
+                ):
+                    current_bg = ANSI_COLORS[
+                        param - AnsiEscapeCodes.BackgroundBrightColorStart
+                    ]
                     bold_bg = True
-                elif AnsiEscapeCodes.TextBrightColorStart <= param <= AnsiEscapeCodes.TextBrightColorEnd:
-                    current_fg = ANSI_COLORS[param - AnsiEscapeCodes.TextBrightColorStart]
+                elif (
+                    AnsiEscapeCodes.TextBrightColorStart
+                    <= param
+                    <= AnsiEscapeCodes.TextBrightColorEnd
+                ):
+                    current_fg = ANSI_COLORS[
+                        param - AnsiEscapeCodes.TextBrightColorStart
+                    ]
                     bold_fg = True
 
             last_end = match.end()
 
         # Add remaining text
         if last_end < len(message):
-            segments.append((message[last_end:], current_fg, current_bg, underline, bold_fg, bold_bg))
+            segments.append(
+                (
+                    message[last_end:],
+                    current_fg,
+                    current_bg,
+                    underline,
+                    bold_fg,
+                    bold_bg,
+                )
+            )
 
         # Apply text and styles
         for text, fg, bg, ul, bold_fg, bold_bg in segments:
@@ -164,7 +204,9 @@ class ANSITextCtrl(wx.TextCtrl):
                 else:
                     color_bg = TermColors[bg.name]
 
-                style = wx.TextAttr(wx.Colour(*color_fg.value), wx.Colour(*color_bg.value), font)
+                style = wx.TextAttr(
+                    wx.Colour(*color_fg.value), wx.Colour(*color_bg.value), font
+                )
                 self.SetDefaultStyle(style)
                 # Regex to extract the progress bar value from the tqdm output
                 regex_tqdm = re.match(r"\r([\d\s]+)%\|.*\|(.*)", text)
@@ -181,11 +223,18 @@ class ANSITextCtrl(wx.TextCtrl):
         # Reset style at the end
         default_font = self.GetFont()
         default_font.SetUnderlined(False)
-        self.SetDefaultStyle(wx.TextAttr(wx.Colour(*self.default_fg.value), wx.Colour(*self.default_bg.value), default_font))
+        self.SetDefaultStyle(
+            wx.TextAttr(
+                wx.Colour(*self.default_fg.value),
+                wx.Colour(*self.default_bg.value),
+                default_font,
+            )
+        )
 
 
 class LogPanel(wx.Panel):
     """A panel containing a shared log in a StaticBox."""
+
     def __init__(self, parent):
         super().__init__(parent)
 
@@ -196,15 +245,33 @@ class LogPanel(wx.Panel):
         # Create the progessbar in case of tqdm
         self.gauge = wx.Gauge(self, -1, 100, size=(-1, 5))
         font = get_best_monospace_font()
-        self.gauge_text = wx.TextCtrl(self, -1, "", size=(400, -1), style=wx.TE_READONLY | wx.NO_BORDER)
-        self.gauge_text.SetFont(wx.Font(8, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, faceName=font))
+        self.gauge_text = wx.TextCtrl(
+            self, -1, "", size=(400, -1), style=wx.TE_READONLY | wx.NO_BORDER
+        )
+        self.gauge_text.SetFont(
+            wx.Font(
+                8,
+                wx.FONTFAMILY_DEFAULT,
+                wx.FONTSTYLE_NORMAL,
+                wx.FONTWEIGHT_NORMAL,
+                faceName=font,
+            )
+        )
         self.gauge_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.gauge_sizer.Add(self.gauge, 1, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 2)
         self.gauge_sizer.Add(self.gauge_text, 0, wx.EXPAND | wx.ALL, 2)
         # Create the log
         self.log_ctrl = ANSITextCtrl(self)
         self.log_ctrl.SetMinSize((100, 200))
-        self.log_ctrl.SetFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, faceName=font))
+        self.log_ctrl.SetFont(
+            wx.Font(
+                10,
+                wx.FONTFAMILY_DEFAULT,
+                wx.FONTSTYLE_NORMAL,
+                wx.FONTWEIGHT_NORMAL,
+                faceName=font,
+            )
+        )
         self.log_ctrl.SetBackgroundColour(wx.Colour(*TermColors.BLACK.value))
 
         box_sizer.Add(self.log_ctrl, 1, wx.EXPAND | wx.ALL, 2)
@@ -238,11 +305,23 @@ class AboutDialog(wx.Frame):
         sizer = wx.BoxSizer(wx.VERTICAL)
 
         # Create the TextCtrl (HTML content)
-        self.html = wx.TextCtrl(panel, size=(600, 200), style=wx.TE_AUTO_URL | wx.TE_MULTILINE | wx.TE_READONLY)
+        self.html = wx.TextCtrl(
+            panel,
+            size=(600, 200),
+            style=wx.TE_AUTO_URL | wx.TE_MULTILINE | wx.TE_READONLY | wx.NO_BORDER,
+        )
 
         if font == "monospace":
             font = get_best_monospace_font()
-            self.html.SetFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, faceName=font))
+            self.html.SetFont(
+                wx.Font(
+                    10,
+                    wx.FONTFAMILY_DEFAULT,
+                    wx.FONTSTYLE_NORMAL,
+                    wx.FONTWEIGHT_NORMAL,
+                    faceName=font,
+                )
+            )
         self.html.WriteText(head)
         self.html.WriteText("\n\n")
         self.html.WriteText(description)
@@ -286,10 +365,18 @@ def get_best_monospace_font():
     available_fonts = font_enum.GetFacenames()
 
     # Preferred monospace fonts (order matters)
-    monospace_fonts = ["Consolas", "Courier New", "Lucida Console", "MS Gothic", "NSimSun"]
+    monospace_fonts = [
+        "Consolas",
+        "Courier New",
+        "Lucida Console",
+        "MS Gothic",
+        "NSimSun",
+    ]
 
     # Pick the first available monospace font
-    chosen_font = next((f for f in monospace_fonts if f in available_fonts), "Courier New")
+    chosen_font = next(
+        (f for f in monospace_fonts if f in available_fonts), "Courier New"
+    )
     return chosen_font
 
 
@@ -306,6 +393,7 @@ class RedirectText:
 
 class NavButton(wx.Panel):
     """Custom navigation button for sidebar"""
+
     def __init__(self, parent, label, icon=None):
         super().__init__(parent)
         self.selected = False
@@ -381,7 +469,9 @@ class NormalEntry:
         self.build_error()
 
     def build_label(self):
-        self.static_text = wx.StaticText(self.parent, -1, NormalEntry.longest_param_name + " *")
+        self.static_text = wx.StaticText(
+            self.parent, -1, NormalEntry.longest_param_name + " *"
+        )
         size = self.static_text.GetSize()
         self.static_text.SetMinSize(size)
         required = " *" if self.param.required else ""
@@ -393,7 +483,7 @@ class NormalEntry:
         # Password
         if hasattr(self.param, "hide_input") and self.param.hide_input:
             self.entry = wx.TextCtrl(
-                self.parent, -1, size=(500, -1), style= wx.TE_PASSWORD
+                self.parent, -1, size=(500, -1), style=wx.TE_PASSWORD
             )
         # Normal case
         else:
@@ -415,17 +505,11 @@ class NormalEntry:
 
 class ChoiceEntry(NormalEntry):
     def build_entry(self):
-        self.entry = wx.ComboBox(
-            self.parent,
-            -1,
-            size=(500, -1),
-            choices=[
-                choice.name
-                if isinstance(choice, enum.Enum)
-                else str(choice)
-                for choice in self.param.type.choices
-            ],
-        )
+        choices = [
+            choice.name if isinstance(choice, enum.Enum) else str(choice)
+            for choice in self.param.type.choices
+        ]
+        self.entry = wx.ComboBox(self.parent, -1, size=(500, -1), choices=choices)
         self.entry.SetMinSize(self.min_size)
         if self.default_text:
             self.entry.SetValue(self.default_text)
@@ -445,14 +529,28 @@ class BoolEntry(NormalEntry):
 
 class SliderEntry(NormalEntry):
     def build_entry(self):
-        initial_value = int(self.default_text) if self.default_text else self.param.type.min
+        initial_value = (
+            int(self.default_text) if self.default_text else self.param.type.min
+        )
         self.entry = wx.Slider(
-            self.parent, value=initial_value, minValue=self.param.type.min, maxValue=self.param.type.max,
-            style=wx.SL_HORIZONTAL | wx.SL_AUTOTICKS | wx.SL_LABELS
-            )
+            self.parent,
+            value=initial_value,
+            minValue=self.param.type.min,
+            maxValue=self.param.type.max,
+            style=wx.SL_HORIZONTAL | wx.SL_AUTOTICKS | wx.SL_LABELS,
+        )
         self.entry.SetMinSize(self.min_size)
 
-        self.entry.SetTickFreq(int(math.pow(10, math.ceil(math.log10(self.param.type.max - self.param.type.min) - 1))))
+        self.entry.SetTickFreq(
+            int(
+                math.pow(
+                    10,
+                    math.ceil(
+                        math.log10(self.param.type.max - self.param.type.min) - 1
+                    ),
+                )
+            )
+        )
 
 
 class PathEntry(NormalEntry):
@@ -464,9 +562,7 @@ class PathEntry(NormalEntry):
 
     def build_button(self):
         self.button = wx.Button(self.parent, -1, "Browse")
-        self.button.Bind(
-            wx.EVT_BUTTON, self.callback
-        )
+        self.button.Bind(wx.EVT_BUTTON, self.callback)
 
 
 class DateTimeEntry(NormalEntry):
@@ -480,9 +576,7 @@ class DateTimeEntry(NormalEntry):
 
     def build_button(self):
         self.button = wx.Button(self.parent, -1, "Select")
-        self.button.Bind(
-            wx.EVT_BUTTON, self.callback
-        )
+        self.button.Bind(wx.EVT_BUTTON, self.callback)
 
 
 class ParameterSection:
@@ -500,16 +594,14 @@ class ParameterSection:
         if not params:
             return  # nothing to render
 
-        # StaticBox with bold font
+        # # StaticBox with bold font
         sb = wx.StaticBox(panel, label=label)
         sb.SetFont(wx.Font(wx.FontInfo(10).Bold()))
 
         # BoxSizer wrapping the StaticBox
         self.boxsizer = wx.StaticBoxSizer(sb, wx.VERTICAL)
         main_boxsizer.Add(
-            self.boxsizer,
-            flag=wx.EXPAND | wx.TOP | wx.LEFT | wx.RIGHT,
-            border=10
+            self.boxsizer, flag=wx.EXPAND | wx.TOP | wx.LEFT | wx.RIGHT, border=5
         )
 
         # GridBagSizer for parameter controls
@@ -542,19 +634,33 @@ class ParameterSection:
                     if param.envvar and param.value_from_envvar(param.envvar):
                         prefilled_value = param.value_from_envvar(param.envvar)
                     # If it is an Enum - Choice parameter
-                    elif isinstance(param.default, enum.Enum) and isinstance(param.type, click.Choice):
-                        prefilled_value = str(param.default.value) if param.default is not UNSET else ""
+                    elif isinstance(param.default, enum.Enum) and isinstance(
+                        param.type, click.Choice
+                    ):
+                        prefilled_value = (
+                            str(param.default.value)
+                            if param.default is not UNSET
+                            else ""
+                        )
                     # Otherwise, prefill with the default value if any
                     else:
-                        prefilled_value = str(param.default) if param.default is not UNSET else ""
+                        prefilled_value = (
+                            str(param.default) if param.default is not UNSET else ""
+                        )
 
                 # File
-                if isinstance(param.type, click.File) or (isinstance(param.type, click.Path) and param.type.file_okay):
+                if isinstance(param.type, click.File) or (
+                    isinstance(param.type, click.Path) and param.type.file_okay
+                ):
                     # Read mode
-                    if (hasattr(param.type, "readable") and param.type.readable) or (hasattr(param.type, "mode") and "r" in param.type.mode):
+                    if (hasattr(param.type, "readable") and param.type.readable) or (
+                        hasattr(param.type, "mode") and "r" in param.type.mode
+                    ):
                         mode = "read"
                     # Write mode
-                    elif (hasattr(param.type, "writable") and param.type.writable) or (hasattr(param.type, "mode") and "w" in param.type.mode):
+                    elif (hasattr(param.type, "writable") and param.type.writable) or (
+                        hasattr(param.type, "mode") and "w" in param.type.mode
+                    ):
                         mode = "write"
                     # If help text is something like:
                     # Excel file (.xlsx, .csv)
@@ -563,44 +669,50 @@ class ParameterSection:
                     # dialog can filter the files
                     wildcards = "All files|*.*"
                     if hasattr(param, "help") and param.help:
-                        wildcard_raw = re.search(r"(\w+) file[s]? \(([a-zA-Z ,\.]*)\)", param.help)
+                        wildcard_raw = re.search(
+                            r"(\w+) file[s]? \(([a-zA-Z ,\.]*)\)", param.help
+                        )
                         if wildcard_raw:
                             file_type, extensions_raw = wildcard_raw.groups()
-                            extensions = re.findall(r"\.(\w+(?:\.\w+)?)", extensions_raw)
-                            extensions_text = ";".join([f"*.{ext}" for ext in extensions])
+                            extensions = re.findall(
+                                r"\.(\w+(?:\.\w+)?)", extensions_raw
+                            )
+                            extensions_text = ";".join(
+                                [f"*.{ext}" for ext in extensions]
+                            )
                             wildcards = f"{file_type} files|{extensions_text}"
                     widgets = PathEntry(
                         parent=self.panel,
                         param=param,
                         default_text=prefilled_value,
-                        callback=lambda evt, panel=self.panel, param=param.name, wildcards=wildcards, mode=mode: self.file_open(evt, panel, param, wildcards, mode),
+                        callback=lambda evt, panel=self.panel, param=param.name, wildcards=wildcards, mode=mode: self.file_open(
+                            evt, panel, param, wildcards, mode
+                        ),
                     )
                     # self.button[param.name] = widgets.button
 
                 # Directory
-                elif (isinstance(param.type, click.Path) and param.type.dir_okay):
+                elif isinstance(param.type, click.Path) and param.type.dir_okay:
                     widgets = PathEntry(
                         parent=self.panel,
                         param=param,
                         default_text=prefilled_value,
-                        callback=lambda evt, panel=self.panel, param=param.name: self.dir_open(evt, panel, param),
+                        callback=lambda evt, panel=self.panel, param=param.name: self.dir_open(
+                            evt, panel, param
+                        ),
                     )
                     # self.button[param.name] = widgets.button
 
                 # Choice
                 elif isinstance(param.type, click.Choice):
                     widgets = ChoiceEntry(
-                        parent=self.panel,
-                        param=param,
-                        default_text=prefilled_value
+                        parent=self.panel, param=param, default_text=prefilled_value
                     )
 
                 # bool
                 elif isinstance(param.type, click.types.BoolParamType):
                     widgets = BoolEntry(
-                        parent=self.panel,
-                        param=param,
-                        default_text=prefilled_value
+                        parent=self.panel, param=param, default_text=prefilled_value
                     )
 
                 # IntRange: Slider only if min and max defined
@@ -616,14 +728,24 @@ class ParameterSection:
                         param=param,
                         default_text=prefilled_value,
                         min_value=param.type.min,
-                        max_value=param.type.max
+                        max_value=param.type.max,
                     )
 
                 # Date
                 elif isinstance(param.type, click.types.DateTime):
                     # Identify required input types
-                    show_date = any([bool(re.search(r"%[YymdUuVWjABbax]", format_str)) for format_str in param.type.formats])
-                    show_time = any([bool(re.search(r"%[HIpMSfzZX]", format_str)) for format_str in param.type.formats])
+                    show_date = any(
+                        [
+                            bool(re.search(r"%[YymdUuVWjABbax]", format_str))
+                            for format_str in param.type.formats
+                        ]
+                    )
+                    show_time = any(
+                        [
+                            bool(re.search(r"%[HIpMSfzZX]", format_str))
+                            for format_str in param.type.formats
+                        ]
+                    )
                     if show_time and not show_date:
                         mode = "time"
                     elif show_date and not show_time:
@@ -635,14 +757,14 @@ class ParameterSection:
                         parent=self.panel,
                         param=param,
                         default_text=prefilled_value,
-                        callback=lambda evt, param=param, mode=mode: self.date_time_picker(evt, param, mode),
+                        callback=lambda evt, param=param, mode=mode: self.date_time_picker(
+                            evt, param, mode
+                        ),
                         mode=mode,
                     )
                 else:
                     widgets = NormalEntry(
-                        parent=self.panel,
-                        param=param,
-                        default_text=prefilled_value
+                        parent=self.panel, param=param, default_text=prefilled_value
                     )
                 self.entry[param.name] = widgets.entry
                 self.text_error[param.name] = widgets.text_error
@@ -650,7 +772,9 @@ class ParameterSection:
                 self.gbs.Add(widgets.entry, flag=wx.EXPAND, pos=(2 * idx_param, 1))
                 if hasattr(widgets, "button"):
                     self.gbs.Add(widgets.button, (2 * idx_param, 2))
-                self.gbs.Add(widgets.text_error, flag=wx.EXPAND, pos=(2 * idx_param + 1, 1))
+                self.gbs.Add(
+                    widgets.text_error, flag=wx.EXPAND, pos=(2 * idx_param + 1, 1)
+                )
         # line = wx.StaticLine(p, -1, size=(20,-1), style=wx.LI_HORIZONTAL)
         # gbs.Add(line, (i+1, 0), (i+1, 3), wx.EXPAND|wx.RIGHT|wx.TOP, 5)
 
@@ -694,19 +818,32 @@ class ParameterSection:
             # This returns a Python list of files that were selected.
             dlg.Destroy()
             if mode == "date":
-                self.entry[param.name].SetValue(self.date_picker.GetValue().Format(param.type.formats[0]))
+                self.entry[param.name].SetValue(
+                    self.date_picker.GetValue().Format(param.type.formats[0])
+                )
             elif mode == "time":
-                self.entry[param.name].SetValue(self.time_picker.GetValue().Format(param.type.formats[0]))
+                self.entry[param.name].SetValue(
+                    self.time_picker.GetValue().Format(param.type.formats[0])
+                )
             else:
                 # In case we have multiple formats, pick the most complete one (with more format specifiers)
-                most_complete_format = max(param.type.formats, key=lambda s: s.count('%'))
-                self.entry[param.name].SetValue(datetime.datetime.fromisoformat(self.date_picker.GetValue().FormatISODate() + " " + self.time_picker.GetValue().FormatISOTime()).strftime(most_complete_format))
+                most_complete_format = max(
+                    param.type.formats, key=lambda s: s.count("%")
+                )
+                self.entry[param.name].SetValue(
+                    datetime.datetime.fromisoformat(
+                        self.date_picker.GetValue().FormatISODate()
+                        + " "
+                        + self.time_picker.GetValue().FormatISOTime()
+                    ).strftime(most_complete_format)
+                )
 
     def dir_open(self, event, panel, param):
         dlg = wx.DirDialog(
-            panel, message="Choose Directory",
+            panel,
+            message="Choose Directory",
             defaultPath=os.getcwd(),
-            style=wx.RESIZE_BORDER
+            style=wx.RESIZE_BORDER,
         )
         if dlg.ShowModal() == wx.ID_OK:
             path = dlg.GetPath()
@@ -744,7 +881,6 @@ class CommandPanel(wx.Panel):
         self.SetBackgroundColour(wx.WHITE)
         self.entries = {}
         self.text_errors = {}
-        self.history_file = history_file
         self.ctx = ctx
         self.command_name = name
         self.config = config
@@ -765,8 +901,13 @@ class CommandPanel(wx.Panel):
         panels = defaultdict(list)
         user_defined_panels = []
         for param in command.params:
-            if (not param.is_eager) and ((hasattr(param, "hidden") and not param.hidden) or (not hasattr(param, "hidden"))):
-                if hasattr(param, "rich_help_panel") and (panel_name := param.rich_help_panel):
+            if (not param.is_eager) and (
+                (hasattr(param, "hidden") and not param.hidden)
+                or (not hasattr(param, "hidden"))
+            ):
+                if hasattr(param, "rich_help_panel") and (
+                    panel_name := param.rich_help_panel
+                ):
                     panels[panel_name].append(param)
                     if panel_name not in user_defined_panels:
                         user_defined_panels.append(panel_name)
@@ -774,17 +915,16 @@ class CommandPanel(wx.Panel):
                     panels["Required Parameters"].append(param)
                 else:
                     panels["Optional Parameters"].append(param)
-        list_panels = ["Required Parameters", *user_defined_panels, "Optional Parameters"]
+        list_panels = [
+            "Required Parameters",
+            *user_defined_panels,
+            "Optional Parameters",
+        ]
 
         for panel in list_panels:
             if panels[panel]:
                 self.sections = ParameterSection(
-                    self.config,
-                    command.name,
-                    self,
-                    panel,
-                    panels[panel],
-                    main_boxsizer
+                    self.config, command.name, self, panel, panels[panel], main_boxsizer
                 )
                 self.entries.update(self.sections.entry)
                 self.text_errors.update(self.sections.text_error)
@@ -803,7 +943,9 @@ class Guick(wx.Frame):
         self.create_help_menu()
 
         # Set history file name
-        history_folder = Path(platformdirs.user_config_dir("history", "guick")) / ctx.info_name
+        history_folder = (
+            Path(platformdirs.user_config_dir("history", "guick")) / ctx.info_name
+        )
         history_folder.mkdir(parents=True, exist_ok=True)
         self.history_file = history_folder / "history.toml"
 
@@ -817,7 +959,6 @@ class Guick(wx.Frame):
 
         # If it is a group, create a right sidebar showing the commands
         if isinstance(ctx.command, click.Group):
-
             # Main sizer
             main_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
@@ -847,7 +988,9 @@ class Guick(wx.Frame):
             self.panel = wx.Panel(
                 self,
                 -1,
-                style=wx.DEFAULT_FRAME_STYLE | wx.CLIP_CHILDREN | wx.FULL_REPAINT_ON_RESIZE,
+                style=wx.DEFAULT_FRAME_STYLE
+                | wx.CLIP_CHILDREN
+                | wx.FULL_REPAINT_ON_RESIZE,
             )
             # Create the OK/Cancel buttons
             button_panel = self.create_ok_cancel_buttons()
@@ -870,8 +1013,16 @@ class Guick(wx.Frame):
         # If a larger size is specified, apply it
         if size:
             current_size = self.GetClientSize()
-            new_width = max(size[0], current_size.width) if size[0] != -1 else current_size.width
-            new_height = max(size[1], current_size.height) if size[1] != -1 else current_size.height
+            new_width = (
+                max(size[0], current_size.width)
+                if size[0] != -1
+                else current_size.width
+            )
+            new_height = (
+                max(size[1], current_size.height)
+                if size[1] != -1
+                else current_size.height
+            )
             self.SetClientSize((new_width, new_height))
 
         self.CreateStatusBar()
@@ -939,7 +1090,9 @@ class Guick(wx.Frame):
         self.cmd_panels = {}
         for name in self.ctx.command.commands:
             btn = NavButton(nav_panel, name)
-            btn.Bind(wx.EVT_BUTTON, lambda e, panel_name=name: self.show_panel(panel_name))
+            btn.Bind(
+                wx.EVT_BUTTON, lambda e, panel_name=name: self.show_panel(panel_name)
+            )
             nav_sizer.Add(btn, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 5)
             self.nav_buttons.append((name, btn))
 
@@ -951,22 +1104,22 @@ class Guick(wx.Frame):
         # Hide all panels
         for name, panel in self.cmd_panels.items():
             panel.Hide()
-        
+
         # Show selected panel
         if panel_name in self.cmd_panels:
             self.cmd_panels[panel_name].Show()
-        
+
         # Update button selection
         for name, btn in self.nav_buttons:
             btn.set_selected(name == panel_name)
-        
+
         self.content_panel.Layout()
 
     def create_help_menu(self):
         # Create Help menu
         menubar = wx.MenuBar()
         help_menu = wx.Menu()
-        help_item = wx.MenuItem(help_menu, -1, '&Help')
+        help_item = wx.MenuItem(help_menu, -1, "&Help")
         help_menu.Append(help_item)
         self.Bind(wx.EVT_MENU, self.on_help, help_item)
 
@@ -978,11 +1131,11 @@ class Guick(wx.Frame):
             # Get version before redirecting stdout
             self.version = self.get_version()
 
-            version_item = wx.MenuItem(help_menu, -1, '&Version')
+            version_item = wx.MenuItem(help_menu, -1, "&Version")
             help_menu.Append(version_item)
             self.Bind(wx.EVT_MENU, self.OnVersion, version_item)
 
-        menubar.Append(help_menu, '&Help')
+        menubar.Append(help_menu, "&Help")
         self.SetMenuBar(menubar)
 
     def on_exit(self, event):
@@ -1016,10 +1169,9 @@ class Guick(wx.Frame):
                     break
         return output
 
-
     def OnVersion(self, event):
         head = self.ctx.command.name
-        
+
         dlg = AboutDialog(self, "About", head, self.version, font="monospace")
         dlg.Show()
 
@@ -1027,8 +1179,11 @@ class Guick(wx.Frame):
         sys.exit()
 
     def on_ok_button(self, event):
-
-        sel_cmd_name, sel_cmd_panel = [(name, cmd_panel) for name, cmd_panel in self.cmd_panels.items() if cmd_panel.IsShown()][0]
+        sel_cmd_name, sel_cmd_panel = [
+            (name, cmd_panel)
+            for name, cmd_panel in self.cmd_panels.items()
+            if cmd_panel.IsShown()
+        ][0]
 
         # If the command section does not exist in the history file, create it
         if sel_cmd_name and sel_cmd_name not in self.config:
@@ -1061,10 +1216,16 @@ class Guick(wx.Frame):
 
         # Display errors if any
         for param in selected_command.params:
-            if (hasattr(param, "hidden") and not param.hidden) or (not hasattr(param, "hidden")):
+            if (hasattr(param, "hidden") and not param.hidden) or (
+                not hasattr(param, "hidden")
+            ):
                 if errors.get(param.name):
-                    sel_cmd_panel.text_errors[param.name].SetLabel("‼️ " + str(errors[param.name]))
-                    sel_cmd_panel.text_errors[param.name].SetToolTip(str(errors[param.name]))
+                    sel_cmd_panel.text_errors[param.name].SetLabel(
+                        "‼️ " + str(errors[param.name])
+                    )
+                    sel_cmd_panel.text_errors[param.name].SetToolTip(
+                        str(errors[param.name])
+                    )
                 else:
                     with contextlib.suppress(KeyError):
                         sel_cmd_panel.text_errors[param.name].SetLabel("")
@@ -1088,7 +1249,9 @@ class Guick(wx.Frame):
 
         # Invoke the command in a separate thread to avoid blocking the GUI
         self.ctx.args = args
-        self.thread = Thread(target=selected_command.invoke, args=(self.ctx,), daemon=True)
+        self.thread = Thread(
+            target=selected_command.invoke, args=(self.ctx,), daemon=True
+        )
         self.thread.start()
 
 
