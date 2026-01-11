@@ -294,69 +294,80 @@ class MyFileDropTarget(wx.FileDropTarget):
         return True
 
 
-class AboutDialog(wx.Frame):
-    def __init__(self, parent, title, head, description, font=None):
-        super().__init__(parent, title=title)
+class AboutDialog(wx.Dialog):
+    def __init__(self, parent, title, head, text_content, font_size=8):
+        super().__init__(parent, title=title, style=wx.DEFAULT_DIALOG_STYLE)
 
-        # Create a panel to hold the text control and button
-        panel = wx.Panel(self)
-
-        # Create a sizer for the panel to manage layout
         sizer = wx.BoxSizer(wx.VERTICAL)
 
-        # Create the TextCtrl (HTML content)
-        self.html = wx.TextCtrl(
-            panel,
-            size=(600, 200),
-            style=wx.TE_AUTO_URL | wx.TE_MULTILINE | wx.TE_READONLY | wx.NO_BORDER,
+        # Setup the TextCtrl to act like a Label
+        # TE_READONLY: Prevents editing
+        # TE_MULTILINE: Allows multiple lines
+        # TE_AUTO_URL: The magic flag that detects and highlights URLs
+        # TE_RICH: Required on Windows for URL detection to work reliably
+        # BORDER_NONE: Removes the input box border so it looks flat
+        style = (
+            wx.TE_MULTILINE
+            | wx.TE_READONLY
+            | wx.TE_AUTO_URL
+            | wx.TE_RICH
+            | wx.BORDER_NONE
+            | wx.TE_NO_VSCROLL
         )
 
-        if font == "monospace":
-            font = get_best_monospace_font()
-            self.html.SetFont(
-                wx.Font(
-                    10,
-                    wx.FONTFAMILY_DEFAULT,
-                    wx.FONTSTYLE_NORMAL,
-                    wx.FONTWEIGHT_NORMAL,
-                    faceName=font,
-                )
-            )
-        self.html.WriteText(head)
-        self.html.WriteText("\n\n")
-        self.html.WriteText(description)
-        # Ensure the text starts at the beginning
-        self.html.SetInsertionPoint(0)
+        self.text_ctrl = wx.TextCtrl(self, style=style)
+        self.text_ctrl.SetValue(text_content)
 
-        # Add TextCtrl to sizer
-        sizer.Add(self.html, 1, wx.EXPAND | wx.ALL, 10)
+        # Match the background color
+        # This makes the text box blend in with the dialog background
+        bg_color = self.GetBackgroundColour()
+        self.text_ctrl.SetBackgroundColour(bg_color)
 
-        # Create the Close Button
-        close_button = wx.Button(panel, label="Close")
-        sizer.Add(close_button, 0, wx.CENTER | wx.TOP | wx.BOTTOM, 10)
+        # Set Monospace Font (Must be done BEFORE calculating size)
+        f_size = int(font_size)
+        mono_font = get_best_monospace_font()
+        font_info = wx.FontInfo(f_size).FaceName(mono_font)
+        mono_font = wx.Font(font_info)
+        self.text_ctrl.SetFont(mono_font)
 
-        # Bind the button to close the dialog
-        close_button.Bind(wx.EVT_BUTTON, self.OnClose)
-        self.html.Bind(wx.EVT_TEXT_URL, self.OnLinkClicked)
+        # Manual Sizing
+        # TextCtrl generally doesn't "Fit" as tightly as StaticText,
+        # so we calculate the exact pixels needed.
+        lines = text_content.split('\n')
+        longest_line = max(lines, key=len) if lines else ""
 
-        # Set the sizer for the panel
-        panel.SetSizerAndFit(sizer)
+        # Get width/height of the text using the current font
+        w_text, h_text = self.text_ctrl.GetTextExtent(longest_line)
 
-        # Set the size of the frame to fit the panel
+        # Calculate totals
+        # We add small buffers (+20 width, +10 height) to ensure no scrollbars appear
+        line_height = self.text_ctrl.GetTextExtent("Ty")[1]  # Height of a standard char
+        total_height = (line_height * len(lines)) + 15
+        total_width = w_text + 30
+
+        self.text_ctrl.SetMinSize((total_width, total_height))
+
+        # Bind the URL Click Event
+        self.text_ctrl.Bind(wx.EVT_TEXT_URL, self.OnLinkClicked)
+
+        # Add to sizer
+        sizer.Add(self.text_ctrl, 0, wx.ALL, 20)
+
+        # Standard Buttons
+        btn_sizer = wx.StdDialogButtonSizer()
+        btn_sizer.AddButton(wx.Button(self, wx.ID_OK))
+        btn_sizer.Realize()
+        sizer.Add(btn_sizer, 0, wx.ALIGN_CENTER | wx.BOTTOM, 10)
+
+        self.SetSizer(sizer)
         self.Fit()
-
-        # Show the frame
-        self.Show()
+        self.CenterOnParent()
 
     def OnLinkClicked(self, event):
         if event.MouseEvent.LeftUp():
-            url = self.html.GetRange(event.GetURLStart(), event.GetURLEnd())
+            url = self.text_ctrl.GetRange(event.GetURLStart(), event.GetURLEnd())
             webbrowser.open(url)
         event.Skip()
-
-    def OnClose(self, event):
-        # Close the window when the button is clicked
-        self.Close()
 
 
 def get_best_monospace_font():
@@ -1145,17 +1156,25 @@ class Guick(wx.Frame):
 
     def on_help(self, event):
         head = self.ctx.command.name
-        short_help = self.ctx.command.short_help
-        help_text = self.ctx.command.help
-        help_epilog = self.ctx.command.epilog
-        description = ""
-        if short_help:
-            description += f"{short_help}\n\n"
-        if help_text:
-            description += f"{help_text}\n\n"
-        if help_epilog:
-            description += f"{help_epilog}"
+
+        if isinstance(self.ctx.command, (TyperCommandGui, TyperGroupGui)):
+            import unittest.mock as mock
+            from contextlib import redirect_stdout
+
+            f = io.StringIO()
+            with mock.patch("os.get_terminal_size", return_value=os.terminal_size((100, 20))):
+                with redirect_stdout(f):
+                    help_text = self.ctx.command.get_help(self.ctx)
+
+                description = f.getvalue()
+
+        else:
+            formatter = click.HelpFormatter()
+            self.ctx.command.format_help(self.ctx, formatter)
+            description = self.ctx.command.get_help(self.ctx)
         dlg = AboutDialog(self, "Help", head, description)
+        dlg.ShowModal()
+        dlg.Destroy()
 
     def get_version(self):
         for param in self.ctx.command.params:
@@ -1172,8 +1191,9 @@ class Guick(wx.Frame):
     def OnVersion(self, event):
         head = self.ctx.command.name
 
-        dlg = AboutDialog(self, "About", head, self.version, font="monospace")
-        dlg.Show()
+        dlg = AboutDialog(self, "About", head, self.version)
+        dlg.ShowModal()
+        dlg.Destroy()
 
     def on_close_button(self, event):
         sys.exit()
