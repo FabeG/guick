@@ -410,7 +410,15 @@ class NavButton(wx.Panel):
         self.selected = False
         self.label = label
 
-        self.SetBackgroundColour(wx.Colour(243, 243, 243))
+        # Use system colors
+        self.normal_color = wx.SystemSettings.GetColour(wx.SYS_COLOUR_BTNFACE)
+        self.hover_color = wx.SystemSettings.GetColour(wx.SYS_COLOUR_BTNHIGHLIGHT)
+        self.selected_color = wx.SystemSettings.GetColour(wx.SYS_COLOUR_HIGHLIGHT)
+        self.selected_text_color = wx.SystemSettings.GetColour(wx.SYS_COLOUR_HIGHLIGHTTEXT)
+        self.normal_text_color = wx.SystemSettings.GetColour(wx.SYS_COLOUR_BTNTEXT)
+
+        self.SetBackgroundColour(self.normal_color)
+        self.SetForegroundColour(self.normal_text_color)
 
         sizer = wx.BoxSizer(wx.HORIZONTAL)
 
@@ -439,12 +447,12 @@ class NavButton(wx.Panel):
 
     def on_hover(self, event):
         if not self.selected:
-            self.SetBackgroundColour(wx.Colour(230, 230, 230))
+            self.SetBackgroundColour(self.hover_color)
             self.Refresh()
 
     def on_leave(self, event):
         if not self.selected:
-            self.SetBackgroundColour(wx.Colour(243, 243, 243))
+            self.SetBackgroundColour(self.normal_color)
             self.Refresh()
 
     def on_click(self, event):
@@ -454,9 +462,15 @@ class NavButton(wx.Panel):
     def set_selected(self, selected):
         self.selected = selected
         if selected:
-            self.SetBackgroundColour(wx.Colour(220, 220, 220))
+            self.SetBackgroundColour(self.selected_color)
+            for child in self.GetChildren():
+                if isinstance(child, wx.StaticText):
+                    child.SetForegroundColour(self.selected_text_color)
         else:
-            self.SetBackgroundColour(wx.Colour(243, 243, 243))
+            self.SetBackgroundColour(self.normal_color)
+            for child in self.GetChildren():
+                if isinstance(child, wx.StaticText):
+                    child.SetForegroundColour(self.normal_text_color)
         self.Refresh()
 
 
@@ -889,7 +903,7 @@ class ParameterSection:
 class CommandPanel(wx.Panel):
     def __init__(self, parent, ctx, name, config):
         super().__init__(parent)
-        self.SetBackgroundColour(wx.WHITE)
+        self.SetBackgroundColour(wx.SystemSettings.GetColour(wx.SYS_COLOUR_WINDOW))
         self.entries = {}
         self.text_errors = {}
         self.ctx = ctx
@@ -1046,7 +1060,7 @@ class Guick(wx.Frame):
     def create_parameters_panels(self):
         # Right panel for content
         content_panel = wx.Panel(self)
-        content_panel.SetBackgroundColour(wx.WHITE)
+        content_panel.SetBackgroundColour(wx.SystemSettings.GetColour(wx.SYS_COLOUR_WINDOW))
         content_sizer = wx.BoxSizer(wx.VERTICAL)
 
         for name in self.ctx.command.commands:
@@ -1062,7 +1076,7 @@ class Guick(wx.Frame):
     def create_ok_cancel_buttons(self):
         # Button panel at the bottom
         button_panel = wx.Panel(self)
-        button_panel.SetBackgroundColour(wx.Colour(240, 240, 240))
+        button_panel.SetBackgroundColour(wx.SystemSettings.GetColour(wx.SYS_COLOUR_BTNFACE))
         button_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
         button_sizer.AddStretchSpacer()
@@ -1083,7 +1097,7 @@ class Guick(wx.Frame):
 
         # Left sidebar for navigation
         nav_panel = wx.Panel(self)
-        nav_panel.SetBackgroundColour(wx.Colour(243, 243, 243))
+        nav_panel.SetBackgroundColour(wx.SystemSettings.GetColour(wx.SYS_COLOUR_BTNFACE))
         nav_panel.SetMinSize((250, -1))
 
         nav_sizer = wx.BoxSizer(wx.VERTICAL)
