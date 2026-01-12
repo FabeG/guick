@@ -1281,10 +1281,12 @@ class Guick(wx.Frame):
 
         # Save the parameters to the history file
         for param in selected_command.params:
-            with contextlib.suppress(KeyError):
-                self.config[sel_cmd_name][param.name] = sel_cmd_panel.entries[
-                    param.name
-                ].GetValue()
+            # Save each parameter except hidden ones and password fields
+            if not (hasattr(param, "hide_input") and param.hide_input):
+                with contextlib.suppress(KeyError):
+                    self.config[sel_cmd_name][param.name] = sel_cmd_panel.entries[
+                        param.name
+                    ].GetValue()
         with open(self.history_file, mode="w", encoding="utf-8") as fp:
             tomlkit.dump(self.config, fp)
 
