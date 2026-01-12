@@ -1,0 +1,35 @@
+name: Build Wheels
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest]
+        python-version: ['3.11']
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+      with:
+        enable-cache: true
+    
+    - name: Set up Python
+      run: uv python install ${{ matrix.python-version }}
+    
+    - name: Build wheel
+      run: uv build
+    
+    - name: Upload wheels as artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: wheels-${{ matrix.os }}-py${{ matrix.python-version }}-${{ github.sha }}
+        path: dist/*
+        retention-days: 10
