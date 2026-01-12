@@ -7,11 +7,15 @@ import os
 import re
 import sys
 import time
-import typing as t
 import webbrowser
 from collections import defaultdict
 from pathlib import Path
 from threading import Thread
+from typing import (
+    List,
+    Optional,
+    Union,
+)
 
 import click
 import tomlkit
@@ -19,6 +23,12 @@ import wx
 import wx.adv
 import wx.html
 import wx.lib.scrolledpanel as scrolled
+from click.core import (
+    Argument,
+    Context,
+    Option,
+)
+from tomlkit.toml_document import TOMLDocument
 
 with contextlib.suppress(ImportError):
     from typer.core import TyperCommand, TyperGroup
@@ -87,7 +97,7 @@ ANSI_COLORS = {
 
 
 class ANSITextCtrl(wx.TextCtrl):
-    def __init__(self, parent, *args, **kwargs):
+    def __init__(self, parent: LogPanel, *args, **kwargs):
         super().__init__(parent, style=wx.TE_MULTILINE | wx.TE_RICH2 | wx.TE_READONLY)
         self.parent = parent
         self.gauge = parent.gauge
@@ -236,7 +246,7 @@ class ANSITextCtrl(wx.TextCtrl):
 class LogPanel(wx.Panel):
     """A panel containing a shared log in a StaticBox."""
 
-    def __init__(self, parent):
+    def __init__(self, parent: Guick):
         super().__init__(parent)
 
         sb = wx.StaticBox(self, label="Log")
@@ -285,7 +295,7 @@ class LogPanel(wx.Panel):
 
 
 class MyFileDropTarget(wx.FileDropTarget):
-    def __init__(self, obj):
+    def __init__(self, obj: wx.TextCtrl):
         wx.FileDropTarget.__init__(self)
         self.obj = obj
 
@@ -371,7 +381,7 @@ class AboutDialog(wx.Dialog):
         event.Skip()
 
 
-def get_best_monospace_font():
+def get_best_monospace_font() -> str:
     font_enum = wx.FontEnumerator()
     font_enum.EnumerateFacenames()
     available_fonts = font_enum.GetFacenames()
@@ -393,10 +403,10 @@ def get_best_monospace_font():
 
 
 class RedirectText:
-    def __init__(self, my_text_ctrl):
+    def __init__(self, my_text_ctrl: ANSITextCtrl) -> None:
         self.out = my_text_ctrl
 
-    def write(self, string):
+    def write(self, string: str) -> None:
         wx.CallAfter(self.out.append_ansi_text, string)
 
     def flush(self):
@@ -479,10 +489,10 @@ class NormalEntry:
     longest_param_name = ""
 
     @classmethod
-    def init_class(cls, param_name):
+    def init_class(cls, param_name: str) -> None:
         cls.longest_param_name = param_name
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         self.param = kwargs["param"]
         self.parent = kwargs["parent"]
         self.entry = None
@@ -494,7 +504,7 @@ class NormalEntry:
         self.build_button()
         self.build_error()
 
-    def build_label(self):
+    def build_label(self) -> None:
         self.static_text = wx.StaticText(
             self.parent, -1, NormalEntry.longest_param_name + " *"
         )
@@ -505,7 +515,7 @@ class NormalEntry:
         if hasattr(self.param, "help"):
             self.static_text.SetToolTip(self.param.help)
 
-    def build_entry(self):
+    def build_entry(self) -> None:
         # Password
         if hasattr(self.param, "hide_input") and self.param.hide_input:
             self.entry = wx.TextCtrl(
@@ -518,10 +528,10 @@ class NormalEntry:
         if self.default_text:
             self.entry.SetValue(self.default_text)
 
-    def build_button(self):
+    def build_button(self) -> None:
         pass
 
-    def build_error(self):
+    def build_error(self) -> None:
         self.text_error = wx.StaticText(self.parent, -1, "", size=(500, -1))
         font = wx.Font(wx.FontInfo(8))
         self.text_error.SetMinSize(self.min_size)
@@ -530,7 +540,7 @@ class NormalEntry:
 
 
 class ChoiceEntry(NormalEntry):
-    def build_entry(self):
+    def build_entry(self) -> None:
         choices = [
             choice.name if isinstance(choice, enum.Enum) else str(choice)
             for choice in self.param.type.choices
@@ -542,7 +552,7 @@ class ChoiceEntry(NormalEntry):
 
 
 class BoolEntry(NormalEntry):
-    def build_entry(self):
+    def build_entry(self) -> None:
         self.entry = wx.CheckBox(self.parent, -1)
         if self.default_text:
             self.entry.SetValue(bool(self.default_text))
@@ -554,7 +564,7 @@ class BoolEntry(NormalEntry):
 
 
 class SliderEntry(NormalEntry):
-    def build_entry(self):
+    def build_entry(self) -> None:
         initial_value = (
             int(self.default_text) if self.default_text else self.param.type.min
         )
@@ -580,19 +590,19 @@ class SliderEntry(NormalEntry):
 
 
 class PathEntry(NormalEntry):
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         self.callback = kwargs.get("callback")
         super().__init__(**kwargs)
         self.file_drop_target = MyFileDropTarget(self.entry)
         self.entry.SetDropTarget(self.file_drop_target)
 
-    def build_button(self):
+    def build_button(self) -> None:
         self.button = wx.Button(self.parent, -1, "Browse")
         self.button.Bind(wx.EVT_BUTTON, self.callback)
 
 
 class DateTimeEntry(NormalEntry):
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         self.button = None
         self.param = kwargs.get("param")
         print(dir(self.param))
@@ -600,13 +610,13 @@ class DateTimeEntry(NormalEntry):
         self.callback = kwargs.get("callback")
         super().__init__(**kwargs)
 
-    def build_button(self):
+    def build_button(self) -> None:
         self.button = wx.Button(self.parent, -1, "Select")
         self.button.Bind(wx.EVT_BUTTON, self.callback)
 
 
 class ParameterSection:
-    def __init__(self, config, command_name, panel, label, params, main_boxsizer):
+    def __init__(self, config: TOMLDocument, command_name: str, panel: CommandPanel, label: str, params: List[Union[Argument, Option]], main_boxsizer: wx.BoxSizer) -> None:
         self.params = params
         self.controls = {}  # param_name -> wx control
         self.boxsizer = None
@@ -638,7 +648,7 @@ class ParameterSection:
         self._populate()
         self.gbs.AddGrowableCol(1)
 
-    def _populate(self):
+    def _populate(self) -> None:
         idx_param = -1
         for param in self.params:
             if (
@@ -902,7 +912,7 @@ class ParameterSection:
 
 
 class CommandPanel(wx.Panel):
-    def __init__(self, parent, ctx, name, config):
+    def __init__(self, parent: Guick, ctx: Context, name: str, config: TOMLDocument) -> None:
         super().__init__(parent)
         self.SetBackgroundColour(wx.SystemSettings.GetColour(wx.SYS_COLOUR_WINDOW))
         self.entries = {}
@@ -960,7 +970,7 @@ class CommandPanel(wx.Panel):
 
 
 class Guick(wx.Frame):
-    def __init__(self, ctx, size=None):
+    def __init__(self, ctx: Context, size: wx.Size = None) -> None:
         wx.Frame.__init__(self, None, -1, ctx.command.name)
         self.ctx = ctx
         self.cmd_panels = {}
@@ -1074,7 +1084,7 @@ class Guick(wx.Frame):
         content_panel.SetSizer(content_sizer)
         return content_panel
 
-    def create_ok_cancel_buttons(self):
+    def create_ok_cancel_buttons(self) -> wx.Panel:
         # Button panel at the bottom
         button_panel = wx.Panel(self)
         button_panel.SetBackgroundColour(wx.SystemSettings.GetColour(wx.SYS_COLOUR_BTNFACE))
@@ -1141,7 +1151,7 @@ class Guick(wx.Frame):
 
         self.content_panel.Layout()
 
-    def create_help_menu(self):
+    def create_help_menu(self) -> None:
         # Create Help menu
         menubar = wx.MenuBar()
         help_menu = wx.Menu()
@@ -1213,7 +1223,7 @@ class Guick(wx.Frame):
     def on_close_button(self, event):
         sys.exit()
 
-    def on_ok_button(self, event):
+    def on_ok_button(self, event) -> None:
         sel_cmd_name, sel_cmd_panel = [
             (name, cmd_panel)
             for name, cmd_panel in self.cmd_panels.items()
@@ -1291,11 +1301,11 @@ class Guick(wx.Frame):
 
 
 class CommonGui:
-    def __init__(self, *args, size=None, **kwargs):
+    def __init__(self, *args, size=None, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.size = size
 
-    def parse_args(self, ctx, args: list[str]) -> list[str]:
+    def parse_args(self, ctx: Context, args: list[str]) -> list[str]:
         # If args defined on the command line, use the CLI
         if args:
             args = super().parse_args(ctx, args)
