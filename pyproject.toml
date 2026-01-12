@@ -43,8 +43,3 @@ docs = [
     "sphinx-copybutton>=0.5.2",
     "sphinx-design>=0.6.1",
 ]
-
-[tool.uv]
-find-links = [
-    "https://extras.wxpython.org/wxPython4/extras/linux/gtk3/ubuntu-22.04"
-]

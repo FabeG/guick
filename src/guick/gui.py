@@ -1289,24 +1289,7 @@ class Guick(wx.Frame):
         self.thread.start()
 
 
-class GroupGui(click.Group):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    def parse_args(self, ctx, args: list[str]) -> list[str]:
-        if args:
-            args = super().parse_args(ctx, args)
-            return args
-        # if not args and self.no_args_is_help and not ctx.resilient_parsing:
-        #     raise Exception(ctx)
-
-        app = wx.App()
-        frame = Guick(ctx)
-        frame.Show()
-        app.MainLoop()
-
-
-class CommandGui(click.Command):
+class CommonGui:
     def __init__(self, *args, size=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.size = size
@@ -1323,3 +1306,19 @@ class CommandGui(click.Command):
         frame = Guick(ctx, size=self.size)
         frame.Show()
         app.MainLoop()
+
+
+class GroupGui(CommonGui, click.Group):
+    pass
+
+
+class TyperGroupGui(CommonGui, TyperGroup):
+    pass
+
+
+class CommandGui(CommonGui, click.Command):
+    pass
+
+
+class TyperCommandGui(CommonGui, TyperCommand):
+    pass
