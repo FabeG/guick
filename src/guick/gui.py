@@ -14,13 +14,14 @@ from pathlib import Path
 from threading import Thread
 
 import click
-import platformdirs
 import tomlkit
 import wx
 import wx.adv
 import wx.html
 import wx.lib.scrolledpanel as scrolled
-from wx.lib.newevent import NewEvent
+
+with contextlib.suppress(ImportError):
+    from typer.core import TyperCommand, TyperGroup
 
 try:
     # Click 8.3+
@@ -969,7 +970,7 @@ class Guick(wx.Frame):
 
         # Set history file name
         history_folder = (
-            Path(platformdirs.user_config_dir("history", "guick")) / ctx.info_name
+            Path(click.get_app_dir("guick", roaming=False)) / "history" / ctx.info_name
         )
         history_folder.mkdir(parents=True, exist_ok=True)
         self.history_file = history_folder / "history.toml"
