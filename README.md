@@ -1,16 +1,18 @@
-# guick : a Graphical User Interface for CLI using click
+# guick : a Graphical User Interface for CLI using click or Typer
 
 ## Introduction
 
 guick (Graphical User Interface Creation Kit) can transform your command line interface
-(CLI) into a graphical user interface (GUI) with just a few lines of code.
+(CLI) based on click or Typer into a graphical user interface (GUI) with just a few lines of code.
 
 guick is built on top of [click](https://click.palletsprojects.com/en/stable/) and [wxPython](https://www.wxpython.org/).
 
-Please note that for the moment the package can only handle **click command** (and not
-**group**).
 
 ## Installation
+
+### On Windows / MacOS
+
+Since wxpython provides precompiled wheels for Windows and MacOS, you can simply install guick using pip:
 
 ```python
 
@@ -18,43 +20,70 @@ pip install guick
 
 ```
 
-## How does it work
+### On Linux
 
-Just add ``cls=CommandGui`` to your ``click.command``, and guick will transform your Command Line Interface into a Graphical User Interface:
 
 ```python
 
-   @click.command(cls=CommandGui)
-   @click.option("--arg_text", help="arg_text", type=click.STRING, required=True)
-   @click.option("--arg_int", help="arg_int", type=click.INT, required=True)
-   @click.option("--arg_float", help="arg float", type=click.FLOAT, required=True)
-   @click.option("--arg_bool", type=click.BOOL, required=True)
-   @click.option("--arg_uuid", type=click.UUID, required=True)
-   @click.option("--arg_filepath", type=click.Path(file_okay=True, exists=True), required=True)
-   @click.option("--arg_dir", type=click.Path(dir_okay=True, exists=True), required=True)
-   @click.option("--arg_choice", type=click.Choice(["choice1", "choice2"]), required=True)
-   @click.option("--arg_int_range", type=click.IntRange(min=1, max=4), required=True)
-   @click.option("--arg_float_range", type=click.FloatRange(min=1, max=4), required=True)
-   @click.option("--arg_passwd", type=click.STRING, hide_input=True)
-   def main(
-       arg_text,
-       arg_int,
-       arg_float,
-       arg_bool,
-       arg_uuid,
-       arg_file,
-       arg_filepath,
-       arg_dir,
-       arg_choice,
-       arg_int_range,
-       arg_float_range,
-       arg_passwd
-    ):
-       print(arg_text, arg_int, arg_float, arg_bool, arg_uuid, arg_filepath, arg_dir, arg_choice, arg_int_range, arg_float_range, arg_passwd)
-   
-   if __name__ == "__main__":
-       main()
+pip install guick[all]
+
 ```
+
+> [!NOTE]
+
+> On Linux, no precompiled wheels are provided for wxPython on pypi and installing wxpython can be tricky.
+> You can refer to the [troubleshooting section of the installation documentation](https://guick.readthedocs.io/en/latest/installation.html#troubleshooting) if you need help.
+
+## How does it work
+
+### If you come from click
+
+Just add ``cls=CommandGui`` to your ``click.command``, and guick will transform your Command Line Interface into a Graphical User Interface:
+
+Starting with the following very simple Click CLI application:
+
+```python
+
+import click
+
+@click.command()
+@click.option("--name")
+def cli(name):
+    print(f"Hello {name}!")
+
+if __name__ == "__main__":
+    cli()
+
+```
+
+that you would run from the command line like this:
+
+```bash
+
+$ python cli.py --name "John Doe"
+
+Hello John Doe!
+
+
+```
+
+By just adding ``cls=CommandGui`` to your ``click.command``:
+
+```python
+import click
+import guick
+
+@click.command(cls=guick.CommandGui)
+@click.option("--name")
+def cli(name):
+    print(f"Hello {name}!")
+
+if __name__ == "__main__":
+    cli()
+
+```
+
+You will get the following GUI:
 
 ## Support most of standard ``click`` types
 
