@@ -1,11 +1,11 @@
-# guick : a Graphical User Interface for CLI using click or Typer
+# guick : a Graphical User Interface for CLI using Click or Typer
 
 ## Introduction
 
 guick (Graphical User Interface Creation Kit) can transform your command line interface
-(CLI) based on click or Typer into a graphical user interface (GUI) with just a few lines of code.
+(CLI) based on [Click] (https://click.palletsprojects.com/en/stable/)or [Typer](https://typer.tiangolo.com/) into a graphical user interface (GUI) with just a few lines of code.
 
-guick is built on top of [click](https://click.palletsprojects.com/en/stable/) and [wxPython](https://www.wxpython.org/).
+guick is built on top of [Click](https://click.palletsprojects.com/en/stable/) and [wxPython](https://www.wxpython.org/).
 
 
 ## Installation
@@ -30,17 +30,16 @@ pip install guick[all]
 ```
 
 > [!NOTE]
-
 > On Linux, no precompiled wheels are provided for wxPython on pypi and installing wxpython can be tricky.
 > You can refer to the [troubleshooting section of the installation documentation](https://guick.readthedocs.io/en/latest/installation.html#troubleshooting) if you need help.
 
-## How does it work
+## Example
 
-### If you come from click
+### If you come from ``Click``
 
 Just add ``cls=CommandGui`` to your ``click.command``, and guick will transform your Command Line Interface into a Graphical User Interface:
 
-Starting with the following very simple Click CLI application:
+Starting with the following very simple Click CLI application (file cli.py):
 
 ```python
 
@@ -58,7 +57,7 @@ if __name__ == "__main__":
 
 that you would run from the command line like this:
 
-```bash
+```console
 
 $ python cli.py --name "John Doe"
 
@@ -69,11 +68,11 @@ Hello John Doe!
 
 By just adding ``cls=CommandGui`` to your ``click.command``:
 
-```python
+```diff
 import click
-import guick
++import guick
 
-@click.command(cls=guick.CommandGui)
++@click.command(cls=guick.CommandGui)
 @click.option("--name")
 def cli(name):
     print(f"Hello {name}!")
@@ -85,11 +84,64 @@ if __name__ == "__main__":
 
 You will get the following GUI:
 
-## Support most of standard ``click`` types
+### If you come from ``Typer``
+
+Just add ``cls=TyperCommandGui`` to your ``typer.Typer``, and guick will transform your Command Line Interface into a Graphical User Interface:
+
+Starting with the following very simple Click CLI application (file app.py):
+
+```python
+
+import typer
+
+app = typer.Typer()
+
+@app.command(cls=gui.TyperCommandGui)
+def main(name: str):
+    print(f"Hello {name}!")
+
+if __name__ == "__main__":
+    app()
+
+```
+
+that you would run from the command line like this:
+
+```console
+
+$ python app.py --name "John Doe"
+
+Hello John Doe!
+
+```
+
+By just adding ``cls=TyperCommand`` to your ``app.command``:
+
+```diff
+
+import guick
+import typer
+
+app = typer.Typer()
+
+@app.command(cls=guick.TyperCommandGui)
+def main(name: str):
+    print(f"Hello {name}!")
+
+if __name__ == "__main__":
+    app()
+
+```
+
+You will get the following GUI:
+
+## Support most of standard ``Click`` / ``Typer`` types
 
 - **bool** options are rendered as **CheckBox**,
-- **click.Choice** options are rendered as **ComboBox**,
-- **click.Path** options are rendered as **FileDialog** (with **Drag & Drop support**)
+- **click.Choice** / Enum options are rendered as **ComboBox**,
+- **click.Path** / **click.File** options are rendered as **FileDialog** (with **Drag & Drop support**)
+- **click.types.IntRange** options are rendered as **Slider**
+- **click.DateTime** options are rendered using a **DateTimePicker**
 - text entries for **string** options with ``hide_input=True`` are hidden (useful for **password**)
 - all other option types (including custom types) are rendred as normal text entry
 
