@@ -11,6 +11,17 @@ requires-python = ">=3.10"
 dependencies = [
     "click==8.3.1",
     "tomlkit",
+    # Auto-install wxPython on Windows OR macOS (wheels available)
+    "wxpython>=4.2 ; sys_platform == 'win32' or sys_platform == 'darwin'",
+]
+
+[project.optional-dependencies]
+
+# Linux users can manually request it here
+gui = ["wxpython>=4.2"]
+typer = ["typer>=0.15.2"]
+all = [
+    "guick[gui,typer]",
 ]
 
 [tool.setuptools]
