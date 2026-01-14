@@ -2,6 +2,7 @@ import contextlib
 import datetime
 import enum
 import io
+import json
 import math
 import os
 import re
@@ -688,13 +689,16 @@ class ParameterSection:
                 if isinstance(param.type, click.File) or (
                     isinstance(param.type, click.Path) and param.type.file_okay
                 ):
+                    multiple = (hasattr(param, "multiple") and param.multiple) or (
+                        param.nargs != 1
+                    )
                     # Read mode
                     if (hasattr(param.type, "readable") and param.type.readable) or (
                         hasattr(param.type, "mode") and "r" in param.type.mode
                     ):
                         mode = "read"
-                    # Write mode
-                    elif (hasattr(param.type, "writable") and param.type.writable) or (
+                    # Write mode (overwrite readable if both are True)
+                    if (hasattr(param.type, "writable") and param.type.writable) or (
                         hasattr(param.type, "mode") and "w" in param.type.mode
                     ):
                         mode = "write"
@@ -721,8 +725,8 @@ class ParameterSection:
                         parent=self.panel,
                         param=param,
                         default_text=prefilled_value,
-                        callback=lambda evt, panel=self.panel, param=param.name, wildcards=wildcards, mode=mode: self.file_open(
-                            evt, panel, param, wildcards, mode
+                        callback=lambda evt, panel=self.panel, param=param.name, wildcards=wildcards, mode=mode, multiple=multiple: self.file_open(
+                            evt, panel, param, wildcards, mode, multiple
                         ),
                     )
                     # self.button[param.name] = widgets.button
@@ -886,16 +890,20 @@ class ParameterSection:
             dlg.Destroy()
             self.entry[param].SetValue(path)
 
-    def file_open(self, event, panel, param, wildcards="All files|*.*", mode="read"):
+    def file_open(self, event, panel, param, wildcards="All files|*.*", mode="read", multiple=False):
         path = self.entry[param].GetValue()
+        message = "Choose a file"
         last_folder = Path(path).parent if path != "" else os.getcwd()
         if mode == "read":
             style = wx.FD_OPEN | wx.FD_CHANGE_DIR | wx.FD_FILE_MUST_EXIST
+            if multiple:
+                style |= wx.FD_MULTIPLE
+                message = "Choose files"
         else:
             style = wx.FD_SAVE | wx.FD_CHANGE_DIR | wx.FD_OVERWRITE_PROMPT
         dlg = wx.FileDialog(
             panel,
-            message="Choose a file",
+            message=message,
             defaultDir=str(last_folder),
             defaultFile="",
             wildcard=wildcards,
@@ -906,7 +914,10 @@ class ParameterSection:
         # process the data.
         if dlg.ShowModal() == wx.ID_OK:
             # This returns a Python list of files that were selected.
-            path = dlg.GetPath()
+            if multiple:
+                path = json.dumps(dlg.GetPaths())
+            else:
+                path = dlg.GetPath()
             dlg.Destroy()
             self.entry[param].SetValue(path)
 
@@ -1230,34 +1241,49 @@ class Guick(wx.Frame):
             if cmd_panel.IsShown()
         ][0]
 
-        # If the command section does not exist in the history file, create it
-        if sel_cmd_name and sel_cmd_name not in self.config:
-            script_history = tomlkit.table()
-            self.config.add(sel_cmd_name, script_history)
-
-        opts = {
-            key: entry.GetValue() if entry.GetValue() != "" else UNSET
-            for key, entry in sel_cmd_panel.entries.items()
-        }
-        # hidden_opts = {
-        #     param.name: param.default for param in self.ctx.command.params if param.hidden
-        # }
-        # opts = {**opts, **hidden_opts}
-        args = []
-        errors = {}
         # Get the selected command
         try:
             selected_command = self.ctx.command.commands.get(sel_cmd_name)
         except AttributeError:
             selected_command = self.ctx.command
 
+        # If the command section does not exist in the history file, create it
+        if sel_cmd_name and sel_cmd_name not in self.config:
+            script_history = tomlkit.table()
+            self.config.add(sel_cmd_name, script_history)
+
+        opts = {}
+        errors = {}
+        for key, entry in sel_cmd_panel.entries.items():
+            value = entry.GetValue()
+            if value == "":
+                opts[key] = None
+            else:
+                param = [p for p in selected_command.params if p.name == key][0]
+                if param.nargs not in (None, 1) or (hasattr(param, "multiple") and param.multiple):
+                    # Try to parse as JSON to handle lists
+                    try:
+                        opts[key] = json.loads(value)
+                    except json.JSONDecodeError:
+                        errors[param.name] = "Unexpected error in the list, probably a syntax error?"
+                        opts[key] = ""
+                else:
+                    value = entry.GetValue()
+        args = []
+
         # Parse parameters and save errors if any
         self.ctx.params = {}
         for param in selected_command.params:
+            if param.name in errors:
+                continue
             try:
                 _, args = param.handle_parse_result(self.ctx, opts, args)
-            except Exception as exc:
+            except click.exceptions.BadParameter as exc:
                 errors[exc.param.name] = exc
+            except Exception as exc:
+                # Don't overwrite existing errors
+                if param.name not in errors:
+                    errors[param.name] = "Unexpected error, probably a syntax error?"
 
         # Display errors if any
         for param in selected_command.params:
