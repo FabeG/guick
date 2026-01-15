@@ -3,7 +3,7 @@
 ## Introduction
 
 guick (Graphical User Interface Creation Kit) can transform your command line interface
-(CLI) based on [Click] (https://click.palletsprojects.com/en/stable/)or [Typer](https://typer.tiangolo.com/) into a graphical user interface (GUI) with just a few lines of code.
+(CLI) based on [Click](https://click.palletsprojects.com/en/stable/) or [Typer](https://typer.tiangolo.com/) into a graphical user interface (GUI) with just a few lines of code.
 
 guick is built on top of [Click](https://click.palletsprojects.com/en/stable/) and [wxPython](https://www.wxpython.org/).
 
@@ -30,7 +30,7 @@ pip install guick[all]
 ```
 
 > [!NOTE]
-> On Linux, no precompiled wheels are provided for wxPython on pypi and installing wxpython can be tricky.
+> On Linux, no precompiled wheels are provided for wxpython on pypi and installing wxpython can be tricky.
 > You can refer to the [troubleshooting section of the installation documentation](https://guick.readthedocs.io/en/latest/installation.html#troubleshooting) if you need help.
 
 ## Example
@@ -39,31 +39,28 @@ pip install guick[all]
 
 Just add ``cls=CommandGui`` to your ``click.command``, and guick will transform your Command Line Interface into a Graphical User Interface:
 
-Starting with the following very simple Click CLI application (file cli.py):
+Starting with the following very simple Click CLI application (file ``click_first_basic_example.py``):
 
 ```python
-
 import click
+
 
 @click.command()
 @click.option("--name")
-def cli(name):
+def first_basic_example(name):
     print(f"Hello {name}!")
 
-if __name__ == "__main__":
-    cli()
 
+if __name__ == "__main__":
+    first_basic_example()
 ```
 
 that you would run from the command line like this:
 
 ```console
-
 $ python cli.py --name "John Doe"
 
 Hello John Doe!
-
-
 ```
 
 By just adding ``cls=CommandGui`` to your ``click.command``:
@@ -72,43 +69,51 @@ By just adding ``cls=CommandGui`` to your ``click.command``:
 import click
 +import guick
 
+
 +@click.command(cls=guick.CommandGui)
 @click.option("--name")
-def cli(name):
+def first_basic_example(name):
     print(f"Hello {name}!")
 
-if __name__ == "__main__":
-    cli()
 
+if __name__ == "__main__":
+    first_basic_example()
+```
+
+and run the application **with no arguments**:
+
+```console
+$ python cli.py
 ```
 
 You will get the following GUI:
 
+![First Click example](/docs/images/click_basic_first_example.gif)
+
+
 ### If you come from ``Typer``
 
-Just add ``cls=TyperCommandGui`` to your ``typer.Typer``, and guick will transform your Command Line Interface into a Graphical User Interface:
-
-Starting with the following very simple Click CLI application (file app.py):
+Starting with the following very simple ``Typer`` CLI application (file
+``typer_first_basic_example.py``):
 
 ```python
-
 import typer
 
 app = typer.Typer()
 
-@app.command(cls=gui.TyperCommandGui)
-def main(name: str):
+
+@app.command()
+def first_basic_example(name: str):
     print(f"Hello {name}!")
+
 
 if __name__ == "__main__":
     app()
-
 ```
 
 that you would run from the command line like this:
 
 ```console
-
 $ python app.py --name "John Doe"
 
 Hello John Doe!
@@ -118,18 +123,26 @@ Hello John Doe!
 By just adding ``cls=TyperCommand`` to your ``app.command``:
 
 ```diff
-
-import guick
++import guick
 import typer
 
 app = typer.Typer()
 
-@app.command(cls=guick.TyperCommandGui)
-def main(name: str):
+
++@app.command(cls=guick.TyperCommandGui)
+def first_basic_example(name: str):
     print(f"Hello {name}!")
+
 
 if __name__ == "__main__":
     app()
+```
+
+and run the application **with no arguments**:
+
+```console
+
+$ python app.py
 
 ```
 
