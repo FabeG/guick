@@ -58,7 +58,7 @@ if __name__ == "__main__":
 that you would run from the command line like this:
 
 ```console
-$ python cli.py --name "John Doe"
+$ python click_first_basic_example.py --name "John Doe"
 
 Hello John Doe!
 ```
@@ -83,7 +83,7 @@ if __name__ == "__main__":
 and run the application **with no arguments**:
 
 ```console
-$ python cli.py
+$ python click_first_basic_example.py
 ```
 
 You will get the following GUI:
@@ -114,7 +114,7 @@ if __name__ == "__main__":
 that you would run from the command line like this:
 
 ```console
-$ python app.py --name "John Doe"
+$ python typer_first_basic_example.py --name "John Doe"
 
 Hello John Doe!
 
@@ -142,11 +142,13 @@ and run the application **with no arguments**:
 
 ```console
 
-$ python app.py
+$ python typer_first_basic_example.py
 
 ```
 
 You will get the following GUI:
+
+![First Click example](/docs/images/typer_basic_first_example.gif)
 
 ## Support most of standard ``Click`` / ``Typer`` types
 
