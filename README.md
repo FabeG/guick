@@ -33,7 +33,7 @@ pip install guick[all]
 > On Linux, no precompiled wheels are provided for wxpython on pypi and installing wxpython can be tricky.
 > You can refer to the [troubleshooting section of the installation documentation](https://guick.readthedocs.io/en/latest/installation.html#troubleshooting) if you need help.
 
-## Example
+## A simple example
 
 ### If you come from ``Click``
 
@@ -148,7 +148,48 @@ $ python typer_first_basic_example.py
 
 You will get the following GUI:
 
-![First Click example](/docs/images/typer_basic_first_example.gif)
+![First Typer example](/docs/images/typer_basic_first_example.gif)
+
+## An example with subcommands
+
+In the following example (taken from the excellent [Typer documentation](https://typer.tiangolo.com/#example-upgrade)), we will consider a Typer app with 2 subcommands.
+
+In order to generate the GUI, we only have to add 2 lines of code:
+
+
+```diff
++import guick
+import typer
+
++app = typer.Typer(cls=guick.TyperGroupGui)
+
+
+@app.command()
+def hello(name: str):
+    print(f"Hello {name}")
+
+
+@app.command()
+def goodbye(name: str, formal: bool = False):
+    if formal:
+        print(f"Goodbye Ms. {name}. Have a good day.")
+    else:
+        print(f"Bye {name}!")
+
+
+if __name__ == "__main__":
+    app()
+```
+
+And by running the application with **no arguments**:
+
+```console
+$ python typer_subcommands_example.py
+```
+
+The following GUI will be displayed:
+
+![Typer subcommand example](/docs/images/typer_subcommands_example.gif)
 
 ## Support most of standard ``Click`` / ``Typer`` types
 
