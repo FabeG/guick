@@ -555,8 +555,11 @@ class ChoiceEntry(NormalEntry):
 class BoolEntry(NormalEntry):
     def build_entry(self) -> None:
         self.entry = wx.CheckBox(self.parent, -1)
-        if self.default_text:
-            self.entry.SetValue(bool(self.default_text))
+        if not isinstance(self.default_text, bool):
+            value = self.default_text == "True"
+        else:
+            value = self.default_text
+        self.entry.SetValue(value)
         self.entry.Bind(wx.EVT_SET_FOCUS, self.on_focus)
 
     def on_focus(self, event):
