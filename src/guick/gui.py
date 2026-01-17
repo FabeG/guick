@@ -413,6 +413,13 @@ class RedirectText:
     def flush(self):
         pass
 
+    def isatty(self):
+        # Pretend it's a TTY (so that we can use colorized output)
+        return True
+
+    def __getattr__(self, attr):
+        return getattr(self.out, attr)
+
 
 class NavButton(wx.Panel):
     """Custom navigation button for sidebar"""
