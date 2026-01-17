@@ -520,6 +520,20 @@ class NormalEntry:
         self.static_text.SetMinSize(size)
         required = " *" if self.param.required else ""
         self.static_text.SetLabel(self.param.name + required)
+
+        # Deprecated parameters
+        if self.param.deprecated:
+            # Make deprecated parameters faded
+            bg = self.static_text.GetBackgroundColour()
+            normal_colour = self.static_text.GetForegroundColour()
+            deprecated_colour = blend(normal_colour, bg, 0.5)
+            self.static_text.SetForegroundColour(deprecated_colour)
+
+            # Write them in italic
+            font = self.static_text.GetFont()
+            font.SetStyle(wx.FONTSTYLE_ITALIC)
+            self.static_text.SetFont(font)
+
         if hasattr(self.param, "help"):
             self.static_text.SetToolTip(self.param.help)
 
