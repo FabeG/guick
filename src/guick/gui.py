@@ -635,6 +635,11 @@ class DateTimeEntry(NormalEntry):
         self.callback = kwargs.get("callback")
         super().__init__(**kwargs)
 
+    def build_entry(self) -> None:
+        super().build_entry()
+        # Set the 31 december 2025 13:00 as hint using the param format
+        self.entry.SetHint(datetime.datetime(2025, 12, 31, 13, 30, 50, 79233).strftime(self.param.type.formats[0]))
+
     def build_button(self) -> None:
         self.button = wx.Button(self.parent, -1, "Select")
         self.button.Bind(wx.EVT_BUTTON, self.callback)
@@ -859,14 +864,40 @@ class ParameterSection:
         dlg = wx.Dialog(self.panel, title=title)
         dlg.Move(mouse_pos)
         vbox = wx.BoxSizer(wx.VERTICAL)
-        hbox = wx.BoxSizer(wx.HORIZONTAL)
+
+        # Initialize the datetime picker with the time currently in the entry, if any
+        datetime_obj = None
+        current_text_entry = self.entry[param.name].GetValue()
+        try:
+            # Parse the string to a datetime object
+            datetime_obj = datetime.datetime.strptime(current_text_entry, param.type.formats[0])
+
+        except ValueError as exc:
+            if "unconverted data remains" in str(exc):
+                # If the string is too long, slice it to the length of a dummy formatted string
+                # This keeps "12:50" and drops ":40"
+                dummy_len = len(datetime.datetime.now().strftime(param.type.formats[0]))
+                datetime_obj = datetime.datetime.strptime(current_text_entry[:dummy_len], param.type.formats[0])
+
+        hbox = wx.BoxSizer(wx.VERTICAL)
 
         if mode in {"date", "datetime"}:
-            self.date_picker = wx.adv.DatePickerCtrl(dlg, style=wx.adv.DP_DROPDOWN)
+            self.date_picker = wx.adv.CalendarCtrl(dlg)
+            if datetime_obj:
+                # Set the date using wx.DateTime
+                wx_date = wx.DateTime()
+                wx_date.Set(datetime_obj.day, datetime_obj.month - 1, datetime_obj.year)
+                self.date_picker.SetDate(wx_date)
             hbox.Add(self.date_picker, flag=wx.ALL | wx.CENTER, border=5)
+
         if mode in {"time", "datetime"}:
             self.time_picker = wx.adv.TimePickerCtrl(dlg)
-            hbox.Add(self.time_picker, flag=wx.ALL | wx.CENTER, border=5)
+            if datetime_obj:
+                # Set the time using wx.DateTime
+                wx_time = wx.DateTime()
+                wx_time.SetHMS(datetime_obj.hour, datetime_obj.minute, datetime_obj.second)
+                self.time_picker.SetValue(wx_time)
+            hbox.Add(self.time_picker, flag=wx.ALL | wx.EXPAND, border=5)
 
         btn_sizer = wx.StdDialogButtonSizer()
         ok_btn = wx.Button(dlg, wx.ID_OK, label="OK")
@@ -879,11 +910,10 @@ class ParameterSection:
 
         dlg.SetSizerAndFit(vbox)
         if dlg.ShowModal() == wx.ID_OK:
-            # This returns a Python list of files that were selected.
             dlg.Destroy()
             if mode == "date":
                 self.entry[param.name].SetValue(
-                    self.date_picker.GetValue().Format(param.type.formats[0])
+                    self.date_picker.GetDate().Format(param.type.formats[0])
                 )
             elif mode == "time":
                 self.entry[param.name].SetValue(
