@@ -43,6 +43,10 @@ jobs:
           cat test_output.log
         continue-on-error: true
 
+      - name: Check test results
+        if: steps.tests.outcome == 'failure'
+        run: exit 1
+
       - name: Upload test logs
         if: always()
         uses: actions/upload-artifact@v4
