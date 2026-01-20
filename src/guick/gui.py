@@ -750,7 +750,7 @@ class ParameterSection:
                     # Otherwise, prefill with the default value if any
                     else:
                         prefilled_value = (
-                            str(param.default) if param.default is not UNSET else ""
+                            str(param.default) if param.default not in {UNSET, None} else ""
                         )
 
                 # File
@@ -1349,7 +1349,7 @@ class Guick(wx.Frame):
         for key, entry in sel_cmd_panel.entries.items():
             value = entry.GetValue()
             if value == "":
-                opts[key] = None
+                opts[key] = UNSET
             else:
                 param = [p for p in selected_command.params if p.name == key][0]
                 if param.nargs not in (None, 1) or (hasattr(param, "multiple") and param.multiple):
@@ -1360,12 +1360,16 @@ class Guick(wx.Frame):
                         errors[param.name] = "Unexpected error in the list, probably a syntax error?"
                         opts[key] = ""
                 else:
-                    value = entry.GetValue()
+                    opts[key] = entry.GetValue()
         args = []
 
         # Parse parameters and save errors if any
         self.ctx.params = {}
         for param in selected_command.params:
+            # Remove default to avoid having user empty fields being set to default
+            # values without knowing it
+            if not (hasattr(param, "hidden") and param.hidden):
+                param.default = UNSET
             if param.name in errors:
                 continue
             try:
