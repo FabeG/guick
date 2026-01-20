@@ -39,7 +39,7 @@ jobs:
       #    and use 'uv run' to ensure we use the correct environment.
       - name: Run Tests
         run: |
-          xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" uv run pytest -v --tb=long 2>&1 | tee test_output.log
+          xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" uv run pytest --cov=. --cov-report=html --cov-report=term -v --tb=long 2>&1 | tee test_output.log
           cat test_output.log
         continue-on-error: true
 
@@ -49,3 +49,10 @@ jobs:
         with:
           name: test-logs
           path: test_output.log
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        if: github.ref == 'refs/heads/main'  # Only on main branch
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./htmlcov
