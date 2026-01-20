@@ -98,12 +98,12 @@ ANSI_COLORS = {
 
 
 class ANSITextCtrl(wx.TextCtrl):
-    def __init__(self, parent: LogPanel, *args, **kwargs):
+    def __init__(self, parent: LogPanel, panel, *args, **kwargs):
         super().__init__(parent, style=wx.TE_MULTILINE | wx.TE_RICH2 | wx.TE_READONLY)
-        self.parent = parent
-        self.gauge = parent.gauge
-        self.gauge_sizer = parent.gauge_sizer
-        self.gauge_text = parent.gauge_text
+        self.parent = panel
+        self.gauge = panel.gauge
+        self.gauge_sizer = panel.gauge_sizer
+        self.gauge_text = panel.gauge_text
         self.gauge_value = 0
         self.gauge_is_visible = False
         # Default foreground and background colors
@@ -120,6 +120,8 @@ class ANSITextCtrl(wx.TextCtrl):
         bold_fg = False
         bold_bg = False
         # Split the message by ANSI codes
+        if isinstance(message, bytes):
+            message = message.decode('utf-8', errors='replace')
         for match in ANSI_ESCAPE_PATTERN.finditer(message):
             # Add text before the ANSI code
             if match.start() > last_end:
@@ -222,6 +224,7 @@ class ANSITextCtrl(wx.TextCtrl):
                 self.SetDefaultStyle(style)
                 # Regex to extract the progress bar value from the tqdm output
                 regex_tqdm = re.match(r"\r([\d\s]+)%\|.*\|(.*)", text)
+                regex_click_progressbar = re.match(r"\r(.*) \[(#*)(-*)\](.*)", text)
                 if regex_tqdm:
                     if not self.gauge_is_visible:
                         self.gauge_sizer.ShowItems(True)
@@ -230,6 +233,22 @@ class ANSITextCtrl(wx.TextCtrl):
                     self.gauge_value = int(regex_tqdm.group(1))
                     self.gauge.SetValue(self.gauge_value)
                     self.gauge_text.SetValue(regex_tqdm.group(2))
+                elif regex_click_progressbar:
+                    if not self.gauge_is_visible:
+                        self.gauge_sizer.ShowItems(True)
+                        self.gauge_is_visible = True
+                        self.parent.Layout()
+                    completed = len(regex_click_progressbar.group(2))
+                    total = completed + len(regex_click_progressbar.group(3))
+                    if total > 0:
+                        self.gauge_value = int((completed / total) * 100)
+                    else:
+                        self.gauge_value = 0
+                    self.gauge.SetValue(self.gauge_value)
+                    self.gauge_text.SetValue(
+                        regex_click_progressbar.group(1)
+                        + " " + regex_click_progressbar.group(4)
+                    )
                 else:
                     self.AppendText(text)
         # Reset style at the end
@@ -254,6 +273,7 @@ class LogPanel(wx.Panel):
         font = wx.Font(wx.FontInfo(10).Bold())
         sb.SetFont(font)
         box_sizer = wx.StaticBoxSizer(sb, wx.VERTICAL)
+
         # Create the progessbar in case of tqdm
         self.gauge = wx.Gauge(self, -1, 100, size=(-1, 5))
         font = get_best_monospace_font()
@@ -269,11 +289,11 @@ class LogPanel(wx.Panel):
                 faceName=font,
             )
         )
-        self.gauge_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.gauge_sizer.Add(self.gauge, 1, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 2)
-        self.gauge_sizer.Add(self.gauge_text, 0, wx.EXPAND | wx.ALL, 2)
+        self.gauge_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.gauge_sizer.Add(self.gauge, 1, wx.EXPAND | wx.ALL, 2)
+        self.gauge_sizer.Add(self.gauge_text, 1, wx.EXPAND | wx.ALL, 2)
         # Create the log
-        self.log_ctrl = ANSITextCtrl(self)
+        self.log_ctrl = ANSITextCtrl(sb, self)
         self.log_ctrl.SetMinSize((100, 200))
         self.log_ctrl.SetFont(
             wx.Font(
@@ -290,8 +310,11 @@ class LogPanel(wx.Panel):
         box_sizer.Add(self.gauge_sizer, 0, wx.EXPAND | wx.ALL, 2)
         self.gauge_sizer.Show(self.gauge_text, False)
         self.gauge_sizer.Show(self.gauge, False)
-        self.SetSizer(box_sizer)
-        box_sizer.SetSizeHints(self)
+        main_sizer = wx.BoxSizer(wx.VERTICAL)
+        main_sizer.Add(box_sizer, 1, wx.EXPAND | wx.ALL, 5)
+
+        self.SetSizer(main_sizer)
+        # box_sizer.SetSizeHints(self)
         self.Layout()
 
 
