@@ -1451,5 +1451,213 @@ class CommandGui(CommonGui, click.Command):
     pass
 
 
-class TyperCommandGui(CommonGui, TyperCommand):
-    pass
+with contextlib.suppress(NameError):
+    class TyperCommandGui(CommonGui, TyperCommand):
+        pass
+
+    class TyperGroupGui(CommonGui, TyperGroup):
+        pass
+
+
+class MyEnum(str, enum.Enum):
+    FOO = "foo-value"
+    BAR = "bar-value"
+    BAZ = "baz-value"
+
+
+class HashType(enum.Enum):
+    MD5 = enum.auto()
+    SHA1 = enum.auto()
+
+
+@click.command(
+    cls=CommandGui,
+    size=(1600, -1),
+    help="help message that can be quite long, see how it is wrapped to see the sizer in action",
+    short_help="short help message",
+    epilog="Check out the doc at https://github.com/FabeG/guick",
+)
+@click.option(
+    "--arg_text_really_really_really_long_text",
+    help="arg_text",
+    type=click.STRING,
+    required=True,
+    default="toto",
+)
+@click.option("--hash-type", type=click.Choice(HashType, case_sensitive=False))
+@click.option("--arg_int", help="arg_int", type=click.INT, required=False, default=6)
+@click.option("--arg_float", default=42.0, help="arg float", required=True)
+@click.option("--arg_bool", type=click.BOOL, required=True, default=False)
+@click.option("--arg_flag", is_flag=True, help="arg flag", default=True)
+@click.option("++foo", is_flag=True, help="arg flag")
+@click.argument("b", type=click.Choice(MyEnum))
+@click.option("--shout/--no-shout", default=True)
+@click.option("--on/--off", default=True)
+@click.option("-O", type=click.Path(file_okay=False, exists=True, writable=True))
+@click.option("--upper", "transformation", flag_value="upper", default=True)
+@click.option("--lower", "transformation", flag_value="lower")
+@click.option("+w/-w")
+# @click.option("--arg_uuid", type=click.UUID, required=True)
+# @click.option("--arg_file", type=click.File(), required=True)
+@click.option(
+    "--arg_filepath",
+    type=click.Path(file_okay=True, dir_okay=False, exists=True),
+    required=True,
+    help="Excel file (.csv or .xlsx)",
+)
+# @click.option("--arg_filepath_txt", type=click.Path(file_okay=True, dir_okay=False, exists=True), required=True, help="Text file (.txt or .log)")
+# @click.option("--arg_filepath_all", type=click.Path(file_okay=True, dir_okay=False, exists=True), required=True, help="all files")
+# @click.option("--arg_file", type=click.File("r"), required=True, help="all files")
+# @click.option("--arg_file_write", type=click.File("w"), required=True, help="all files")
+# @click.option("--arg_dir", type=click.Path(file_okay=False, dir_okay=True, exists=True), required=True)
+# @click.option("--arg_choice", type=click.Choice(["choice1", "choice2"]), required=True, default="choice1", show_default=True)
+@click.option("--date", type=click.DateTime(formats=["%Y/%m/%d"]))
+@click.option("--time", type=click.DateTime(formats=["%H:%M:%S"]))
+@click.option("--datetime", type=click.DateTime(formats=["%A %d %b %y %H:%M:%S"]))
+# @click.option("--arg_choice", type=click.Choice(["choice1", "choice2"]), required=True)
+# @click.option("--date", type=click.DateTime())
+# @click.option("--time", type=click.DateTime())
+# @click.option("--datetime", type=click.DateTime())
+@click.option("--arg_choice1", type=click.Choice(["choice1", "choice2"]), required=True)
+@click.option("--arg_choice2", type=click.Choice(["choice1", "choice2"]), required=True)
+@click.option("--arg_choice3", type=click.Choice(["choice1", "choice2"]), required=True)
+@click.option("--arg_choice4", type=click.Choice(["choice1", "choice2"]), required=True)
+@click.option("--arg_choice5", type=click.Choice(["choice1", "choice2"]), required=True)
+@click.option("--arg_choice6", type=click.Choice(["choice1", "choice2"]), required=True)
+@click.option("--arg_choice7", type=click.Choice(["choice1", "choice2"]), required=True)
+@click.option("--arg_choice8", type=click.Choice(["choice1", "choice2"]), required=True)
+@click.option("--arg_choice9", type=click.Choice(["choice1", "choice2"]), required=True)
+@click.option(
+    "--arg_choice11", type=click.Choice(["choice1", "choice2"]), required=True
+)
+@click.option(
+    "--arg_choice12", type=click.Choice(["choice1", "choice2"]), required=True
+)
+@click.option(
+    "--arg_choice13", type=click.Choice(["choice1", "choice2"]), required=True
+)
+@click.option(
+    "--arg_choice14", type=click.Choice(["choice1", "choice2"]), required=True
+)
+@click.option(
+    "--arg_choice15", type=click.Choice(["choice1", "choice2"]), required=True
+)
+@click.option(
+    "--arg_choice16", type=click.Choice(["choice1", "choice2"]), required=True
+)
+@click.option(
+    "--arg_choice17", type=click.Choice(["choice1", "choice2"]), required=True
+)
+@click.option(
+    "--arg_choice18", type=click.Choice(["choice1", "choice2"]), required=True
+)
+@click.option(
+    "--arg_choice19", type=click.Choice(["choice1", "choice2"]), required=False
+)
+# @click.option("--arg_int_range", type=click.IntRange(min=1, max=4), required=False, hidden=True, default=1)
+# @click.argument("arg_positional", type=click.File("r"), required=True)
+# # @click.option("--arg_float_range", type=click.FloatRange(min=1, max=4), required=True)
+# # @click.option("--arg_passwd", type=click.STRING, hide_input=True)
+# # @click.option(
+# #     "--version", help="Show version of the Toolbox and exit", is_flag=True, callback=print_version, expose_value=False, is_eager=True
+# # )
+# # @click.option("--filenaboxsizerme", type=click.Path(), metavar="toto", help="Check only some TSO (List of comma separated names of TSO)")
+# # @click.group(
+# #     cls=GroupGui,
+# #     # cls=HelpColorsGroup,
+# #     # help_headers_color='green',
+# #     # help_options_color='cyan',
+# #     epilog="Check out the doc at https://staging-tstvisualizationtool.entsoe.eu/static/doc/html/building_models/apply_pint_toot_modifications.html"
+# # )
+@click.version_option("1.1.1")
+def main(**kwargs):
+    import tqdm
+    from loguru import logger
+
+    logger = logger.opt(colors=True)
+    logger.remove()
+    # print(repr(kwargs["b"]))
+    # print(kwargs["hash_type"])
+    # click.echo(kwargs["b"])
+    click.echo(click.style("Hello World!", fg="yellow"))
+
+    fmt = "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <level>{message}</level>"
+    logger.add(
+        sys.stdout,
+        format=fmt,
+        colorize=True,
+        diagnose=False,
+        backtrace=False,
+        catch=True,
+        level="DEBUG",
+    )
+    # logger.add("test.log", format=fmt, colorize=True, diagnose=False, backtrace=False, catch=True, level="DEBUG")
+    click.echo("hello")
+    print(kwargs["arg_choice19"])
+    click.echo(message="hello")
+    logger.error("test")
+    logger.info("test")
+    logger.debug("test")
+    logger.warning("test")
+    logger.success("test")
+    logger.critical("test")
+    logger.info("<cyan>test cyan</>")
+    logger.info("<light-cyan>test cyan</>")
+    logger.log("INFO", "<magenta>test magenta</>")
+    logger.log("INFO", "<magenta><u>test</> magenta</>")
+    print(kwargs)
+    # print(kwargs["arg_file"].read())
+    print("=" * 50)
+    print("Testing print statements...")
+    logger.info("This is a logger message")
+    print("This is a print message")
+
+    # for i in range(10000):
+    #     if i % 2 == 0:
+    #         print(f"Print: {i}")
+    #     else:
+    #         logger.debug(f"Logger: {i}")
+
+    print("Test completed!")
+    logger.success("All tests passed!")
+    # with click.progressbar(list(range(10))) as pbar:
+    #     for i in pbar:
+    #         time.sleep(1)
+    #         print("hello")
+    # for i in tqdm.tqdm(list(range(3)), file=sys.stdout):
+    # print(time.sleep(1))
+    # print("hello again")
+    try:
+        kwargs["test"]
+    except KeyError:
+        logger.exception("")
+    print(kwargs["arg_float"])
+
+
+# @main.command(name="command_1")
+# @click.option(
+#     "--conf", help="csv file defining models we want to apply modifications for PINT/TOOT projects", metavar="<model csv filename>", required=True,
+#     type=click.STRING
+# )
+# @click.option(
+#     "--base_model", metavar="<IIDM filename>", help="Base case merged model (IIDM file), on which will be applied the modifications for each project",
+#     type=click.STRING
+# )
+# def command_1(**kwargs):
+#     print("enter command1")
+#     print(kwargs)
+
+# @main.command(name="command_2", cls=CommandGui)
+# @click.option(
+#     "--conf_2", type=click.Choice(["choice1", "choice2"]), help="csv file defining models we want to apply modifications for PINT/TOOT projects", metavar="<model csv filename>",
+# )
+# @click.option(
+#     "--base_model_2", metavar="<IIDM filename>", required=True, help="Base case merged model (IIDM file), on which will be applied the modifications for each project",
+#     type=click.Path(file_okay=False, dir_okay=True, exists=True)
+# )
+# def command_2(**kwargs):
+#     print("enter command2")
+#     print(kwargs)
+
+if __name__ == "__main__":
+    main(max_content_width=100)
