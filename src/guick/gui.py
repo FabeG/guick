@@ -347,7 +347,7 @@ class MyFileDropTarget(wx.FileDropTarget):
 
 class AboutDialog(wx.Dialog):
     def __init__(self, parent, title, head, text_content, font_size=8):
-        super().__init__(parent, title=title, style=wx.DEFAULT_DIALOG_STYLE)
+        super().__init__(parent, title=title, style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
 
         sizer = wx.BoxSizer(wx.VERTICAL)
 
@@ -361,9 +361,8 @@ class AboutDialog(wx.Dialog):
             wx.TE_MULTILINE
             | wx.TE_READONLY
             | wx.TE_AUTO_URL
-            | wx.TE_RICH
+            | wx.TE_RICH2
             | wx.BORDER_NONE
-            | wx.TE_NO_VSCROLL
         )
 
         self.text_ctrl = wx.TextCtrl(self, style=style)
@@ -402,15 +401,14 @@ class AboutDialog(wx.Dialog):
         self.text_ctrl.Bind(wx.EVT_TEXT_URL, self.OnLinkClicked)
 
         # Add to sizer
-        sizer.Add(self.text_ctrl, 0, wx.ALL, 20)
+        sizer.Add(self.text_ctrl, 1, wx.EXPAND | wx.ALL, 20)
 
         # Standard Buttons
-        btn_sizer = wx.StdDialogButtonSizer()
-        btn_sizer.AddButton(wx.Button(self, wx.ID_OK))
-        btn_sizer.Realize()
-        sizer.Add(btn_sizer, 0, wx.ALIGN_CENTER | wx.BOTTOM, 10)
+        btn_sizer = self.CreateStdDialogButtonSizer(wx.OK)
+        sizer.Add(btn_sizer, 0, wx.ALIGN_RIGHT | wx.BOTTOM, 10)
 
         self.SetSizer(sizer)
+        self.Layout()
         self.Fit()
         self.CenterOnParent()
 
