@@ -1443,9 +1443,6 @@ class GroupGui(CommonGui, click.Group):
     pass
 
 
-class TyperGroupGui(CommonGui, TyperGroup):
-    pass
-
 
 class CommandGui(CommonGui, click.Command):
     pass
