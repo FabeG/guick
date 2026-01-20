@@ -38,6 +38,7 @@ jobs:
       #    We wrap the command in 'xvfb-run' to fake the screen,
       #    and use 'uv run' to ensure we use the correct environment.
       - name: Run Tests
+        id: tests
         run: |
           xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" uv run pytest --cov=. --cov-report=html --cov-report=term -v --tb=long 2>&1 | tee test_output.log
           cat test_output.log
