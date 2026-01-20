@@ -858,7 +858,6 @@ class ParameterSection:
                         mode = "date"
                     else:
                         mode = "datetime"
-                    print(param.name, mode)
                     widgets = DateTimeEntry(
                         parent=self.panel,
                         param=param,
@@ -1042,7 +1041,7 @@ class CommandPanel(wx.Panel):
             if (not param.is_eager) and (
                 (hasattr(param, "hidden") and not param.hidden)
                 or (not hasattr(param, "hidden"))
-            ):
+            ) and param.name not in {"install_completion", "show_completion"}:
                 if hasattr(param, "rich_help_panel") and (
                     panel_name := param.rich_help_panel
                 ):
