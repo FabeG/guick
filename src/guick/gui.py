@@ -271,6 +271,14 @@ class ANSITextCtrl(wx.TextCtrl):
         )
 
 
+def blend(c1, c2, factor):
+    return wx.Colour(
+        int(c1.Red() + (c2.Red() - c1.Red()) * factor),
+        int(c1.Green() + (c2.Green() - c1.Green()) * factor),
+        int(c1.Blue() + (c2.Blue() - c1.Blue()) * factor),
+    )
+
+
 class LogPanel(wx.Panel):
     """A panel containing a shared log in a StaticBox."""
 
