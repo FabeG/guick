@@ -74,6 +74,7 @@ class AnsiEscapeCodes(enum.IntEnum):
     BoldText = 1
     ItalicText = 3
     UnderLinedText = 4
+    StrikeThrough = 9
     TextColorStart = 30
     TextColorEnd = 37
     TextBrightColorStart = 90
@@ -119,6 +120,7 @@ class ANSITextCtrl(wx.TextCtrl):
         current_fg = self.default_fg
         current_bg = self.default_bg
         underline = False
+        strikethrough = False
         italic = False
         bold_fg = False
         bold_bg = False
@@ -134,6 +136,7 @@ class ANSITextCtrl(wx.TextCtrl):
                         current_fg,
                         current_bg,
                         underline,
+                        strikethrough,
                         italic,
                         bold_fg,
                         bold_bg,
@@ -152,8 +155,11 @@ class ANSITextCtrl(wx.TextCtrl):
                     italic = False
                     bold_fg = False
                     bold_bg = False
+                    strikethrough = False
                 elif param == AnsiEscapeCodes.UnderLinedText:
                     underline = True
+                elif param == AnsiEscapeCodes.StrikeThrough:
+                    strikethrough = True
                 elif param == AnsiEscapeCodes.ItalicText:
                     italic = True
                 elif param == AnsiEscapeCodes.BoldText:
@@ -201,6 +207,7 @@ class ANSITextCtrl(wx.TextCtrl):
                     current_fg,
                     current_bg,
                     underline,
+                    strikethrough,
                     italic,
                     bold_fg,
                     bold_bg,
@@ -208,7 +215,7 @@ class ANSITextCtrl(wx.TextCtrl):
             )
 
         # Apply text and styles
-        for text, fg, bg, ul, it, bold_fg, bold_bg in segments:
+        for text, fg, bg, ul, st, it, bold_fg, bold_bg in segments:
             if text:
                 # Create a font that matches the default one but with underline if needed
                 font = self.GetFont()
@@ -218,8 +225,11 @@ class ANSITextCtrl(wx.TextCtrl):
                     font.SetUnderlined(False)
                 if it:
                     font.MakeItalic()
+                if st:
+                    font.SetStrikethrough(True)
                 # Create text attribute with the font
                 if bold_fg:
+                    font = font.Bold()
                     color_fg = TermColors["BRIGHT_" + fg.name]
                 else:
                     color_fg = TermColors[fg.name]
