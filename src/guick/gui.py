@@ -33,8 +33,17 @@ from click.core import (
 )
 from tomlkit.toml_document import TOMLDocument
 
-with contextlib.suppress(ImportError):
-    from typer.core import TyperCommand, TyperGroup
+# Check if typer is installed
+_typer_spec = importlib.util.find_spec("typer")
+
+if _typer_spec is not None:
+    try:
+        from typer.core import TyperCommand, TyperGroup
+        TYPER_TYPES = (TyperCommand, TyperGroup)
+    except ImportError:
+        TYPER_TYPES = ()
+else:
+    TYPER_TYPES = ()
 
 try:
     # Click 8.3+
@@ -1361,7 +1370,11 @@ class Guick(wx.Frame):
         for key, entry in sel_cmd_panel.entries.items():
             value = entry.GetValue()
             if value == "":
-                opts[key] = UNSET
+                # Empty value: different behaviour depending on Click or Typer
+                if isinstance(selected_command, TYPER_TYPES):
+                    opts[key] = None
+                elif isinstance(selected_command, click.Command):
+                    opts[key] = UNSET
             else:
                 param = [p for p in selected_command.params if p.name == key][0]
                 if param.nargs not in (None, 1) or (hasattr(param, "multiple") and param.multiple):
