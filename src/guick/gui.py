@@ -1444,8 +1444,6 @@ class CommonGui:
         if args:
             args = super().parse_args(ctx, args)
             return args
-        if not args and self.no_args_is_help and not ctx.resilient_parsing:
-            raise Exception(ctx)
 
         app = wx.App()
         frame = Guick(ctx, size=self.size)
