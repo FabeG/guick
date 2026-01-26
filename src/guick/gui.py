@@ -748,6 +748,8 @@ class ParameterSection:
                     # If the parameter has an envvar, prefill with its value
                     if param.envvar and param.value_from_envvar(param.envvar):
                         prefilled_value = param.value_from_envvar(param.envvar)
+                    elif callable(param.default):
+                        prefilled_value = str(param.default())
                     # If it is an Enum - Choice parameter
                     elif isinstance(param.default, enum.Enum) and isinstance(
                         param.type, click.Choice
