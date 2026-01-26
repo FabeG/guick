@@ -36,6 +36,13 @@ local_scheme = 'no-local-version'
 pythonpath = ["src"]
 testpaths = ["tests"]
 
+[tool.coverage.run]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "__init__.py",
+]
+
 [dependency-groups]
 gui = [
     "wxpython",
