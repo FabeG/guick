@@ -41,13 +41,24 @@ jobs:
         id: tests
         run: |
           set -o pipefail
-          xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" uv run pytest --cov=. --cov-report=html --cov-report=term -v --tb=long 2>&1 | tee test_output.log
+          xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" uv run pytest --cov=. --cov-report=xml --cov-report=html --cov-report=term-missing -v --tb=long 2>&1 | tee test_output.log
           cat test_output.log
         continue-on-error: true
 
       - name: Check test results
         if: steps.tests.outcome == 'failure'
         run: exit 1
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+
+      - name: Upload HTML coverage as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-report
+          path: htmlcov/
 
       - name: Upload test logs
         if: always()
