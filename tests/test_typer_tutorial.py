@@ -235,7 +235,7 @@ def test_typer_argument_with_help_panel(tmp_path, mocker, wx_app):
         assert "Secondary Arguments" in guick.cmd_panels["main"].sections
         guick.on_help(None)
         dlg = wx.FindWindowByName("AboutDialog")
-        assert "".join(main.__doc__.splitlines()) in "".join(
+        assert "".join(main.__doc__.splitlines()).strip() in "".join(
             dlg.text_ctrl.GetValue().splitlines()
         )
         assert "The last name" in "".join(dlg.text_ctrl.GetValue().splitlines())
