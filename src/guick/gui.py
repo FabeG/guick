@@ -565,6 +565,7 @@ class NormalEntry:
         self.entry = None
         self.text_error = None
         self.default_text = kwargs.get("default_text")
+        self.hint = kwargs.get("hint")
         self.min_size = (400, -1)
         self.build_label()
         self.build_entry()
@@ -605,6 +606,8 @@ class NormalEntry:
         # Normal case
         else:
             self.entry = wx.TextCtrl(self.parent, -1, size=(500, -1))
+            if self.hint:
+                self.entry.SetHint(self.hint)
         self.entry.SetMinSize(self.min_size)
         if self.default_text:
             self.entry.SetValue(self.default_text)
@@ -630,6 +633,8 @@ class ChoiceEntry(NormalEntry):
         self.entry.SetMinSize(self.min_size)
         if self.default_text:
             self.entry.SetValue(self.default_text)
+        if self.hint:
+            self.entry.SetHint(self.hint)
 
 
 class BoolEntry(NormalEntry):
@@ -754,28 +759,26 @@ class ParameterSection:
                 try:
                     # If previous run, prefill this field with the one saved in
                     # history.toml
-                    prefilled_value = self.config[self.command_name][param.name]
+                    config_value = self.config[self.command_name][param.name]
+                    prefilled_value = str(config_value) if config_value not in {UNSET, None} else ""
                 except (TypeError, KeyError):
-                    # If the parameter has an envvar, prefill with its value
-                    if param.envvar and param.value_from_envvar(param.envvar):
-                        prefilled_value = param.value_from_envvar(param.envvar)
-                    elif callable(param.default):
-                        prefilled_value = str(param.default())
-                    # If it is an Enum - Choice parameter
-                    elif isinstance(param.default, enum.Enum) and isinstance(
-                        param.type, click.Choice
-                    ):
-                        prefilled_value = (
-                            str(param.default.value)
-                            if param.default is not UNSET
-                            else ""
-                        )
-                    # Otherwise, prefill with the default value if any
-                    else:
-                        prefilled_value = (
-                            str(param.default) if param.default not in {UNSET, None} else ""
-                        )
+                    prefilled_value = None
 
+                # If the parameter has an envvar, prefill with its value
+                if param.envvar and param.value_from_envvar(param.envvar):
+                    default_value = param.value_from_envvar(param.envvar)
+                elif callable(param.default):
+                    default_value = param.default()
+                # If it is an Enum - Choice parameter
+                elif isinstance(param.default, enum.Enum) and isinstance(
+                    param.type, click.Choice
+                ):
+                    default_value = param.default.value
+                # Otherwise, prefill with the default value if any
+                else:
+                    default_value = param.default
+
+                hint_value = str(default_value) if default_value not in {UNSET, None} else ""
                 # File
                 if isinstance(param.type, click.File) or (
                     isinstance(param.type, click.Path) and param.type.file_okay
@@ -816,6 +819,7 @@ class ParameterSection:
                         parent=self.panel,
                         param=param,
                         default_text=prefilled_value,
+                        hint=hint_value,
                         callback=lambda evt, panel=self.panel, param=param.name, wildcards=wildcards, mode=mode, multiple=multiple: self.file_open(
                             evt, panel, param, wildcards, mode, multiple
                         ),
@@ -828,6 +832,7 @@ class ParameterSection:
                         parent=self.panel,
                         param=param,
                         default_text=prefilled_value,
+                        hint=hint_value,
                         callback=lambda evt, panel=self.panel, param=param.name: self.dir_open(
                             evt, panel, param
                         ),
@@ -837,13 +842,13 @@ class ParameterSection:
                 # Choice
                 elif isinstance(param.type, click.Choice):
                     widgets = ChoiceEntry(
-                        parent=self.panel, param=param, default_text=prefilled_value
+                        parent=self.panel, param=param, default_text=prefilled_value, hint=hint_value
                     )
 
                 # bool
                 elif isinstance(param.type, click.types.BoolParamType):
                     widgets = BoolEntry(
-                        parent=self.panel, param=param, default_text=prefilled_value
+                        parent=self.panel, param=param, default_text=prefilled_value, hint=hint_value
                     )
 
                 # IntRange: Slider only if min and max defined
@@ -858,6 +863,7 @@ class ParameterSection:
                         parent=self.panel,
                         param=param,
                         default_text=prefilled_value,
+                        hint=hint_value,
                         min_value=param.type.min,
                         max_value=param.type.max,
                     )
@@ -887,6 +893,7 @@ class ParameterSection:
                         parent=self.panel,
                         param=param,
                         default_text=prefilled_value,
+                        hint=hint_value,
                         callback=lambda evt, param=param, mode=mode: self.date_time_picker(
                             evt, param, mode
                         ),
@@ -894,7 +901,7 @@ class ParameterSection:
                     )
                 else:
                     widgets = NormalEntry(
-                        parent=self.panel, param=param, default_text=prefilled_value
+                        parent=self.panel, param=param, default_text=prefilled_value, hint=hint_value
                     )
                 self.entry[param.name] = widgets.entry
                 self.text_error[param.name] = widgets.text_error
@@ -1375,12 +1382,14 @@ class Guick(wx.Frame):
         errors = {}
         for key, entry in sel_cmd_panel.entries.items():
             value = entry.GetValue()
-            if value == "":
-                # Empty value: different behaviour depending on Click or Typer
-                if isinstance(selected_command, TYPER_TYPES):
-                    opts[key] = None
-                elif isinstance(selected_command, click.Command):
-                    opts[key] = UNSET
+            if value in {"", UNSET, None}:
+                opts[key] = entry.GetHint()
+                if opts[key] == "":
+                    # Empty value: different behaviour depending on Click or Typer
+                    if isinstance(selected_command, TYPER_TYPES):
+                        opts[key] = None
+                    elif isinstance(selected_command, click.Command):
+                        opts[key] = UNSET
             else:
                 param = [p for p in selected_command.params if p.name == key][0]
                 if param.nargs not in (None, 1) or (hasattr(param, "multiple") and param.multiple):
@@ -1437,9 +1446,7 @@ class Guick(wx.Frame):
             # Save each parameter except hidden ones and password fields
             if not (hasattr(param, "hide_input") and param.hide_input):
                 with contextlib.suppress(KeyError):
-                    self.config[sel_cmd_name][param.name] = sel_cmd_panel.entries[
-                        param.name
-                    ].GetValue()
+                    self.config[sel_cmd_name][param.name] = opts[param.name]
         with open(self.history_file, mode="w", encoding="utf-8") as fp:
             tomlkit.dump(self.config, fp)
 
@@ -1487,207 +1494,3 @@ with contextlib.suppress(NameError):
 
     class TyperGroupGui(CommonGui, TyperGroup):
         pass
-
-
-class MyEnum(str, enum.Enum):
-    FOO = "foo-value"
-    BAR = "bar-value"
-    BAZ = "baz-value"
-
-
-class HashType(enum.Enum):
-    MD5 = enum.auto()
-    SHA1 = enum.auto()
-
-
-@click.command(
-    cls=CommandGui,
-    size=(1600, -1),
-    help="help message that can be quite long, see how it is wrapped to see the sizer in action",
-    short_help="short help message",
-    epilog="Check out the doc at https://github.com/FabeG/guick",
-)
-@click.option(
-    "--arg_text_really_really_really_long_text",
-    help="arg_text",
-    type=click.STRING,
-    required=True,
-    default="toto",
-)
-@click.option("--hash-type", type=click.Choice(HashType, case_sensitive=False))
-@click.option("--arg_int", help="arg_int", type=click.INT, required=False, default=6)
-@click.option("--arg_float", default=42.0, help="arg float", required=True)
-@click.option("--arg_bool", type=click.BOOL, required=True, default=False)
-@click.option("--arg_flag", is_flag=True, help="arg flag", default=True)
-@click.option("++foo", is_flag=True, help="arg flag")
-@click.argument("b", type=click.Choice(MyEnum))
-@click.option("--shout/--no-shout", default=True)
-@click.option("--on/--off", default=True)
-@click.option("-O", type=click.Path(file_okay=False, exists=True, writable=True))
-@click.option("--upper", "transformation", flag_value="upper", default=True)
-@click.option("--lower", "transformation", flag_value="lower")
-@click.option("+w/-w")
-# @click.option("--arg_uuid", type=click.UUID, required=True)
-# @click.option("--arg_file", type=click.File(), required=True)
-@click.option(
-    "--arg_filepath",
-    type=click.Path(file_okay=True, dir_okay=False, exists=True),
-    required=True,
-    help="Excel file (.csv or .xlsx)",
-)
-# @click.option("--arg_filepath_txt", type=click.Path(file_okay=True, dir_okay=False, exists=True), required=True, help="Text file (.txt or .log)")
-# @click.option("--arg_filepath_all", type=click.Path(file_okay=True, dir_okay=False, exists=True), required=True, help="all files")
-# @click.option("--arg_file", type=click.File("r"), required=True, help="all files")
-# @click.option("--arg_file_write", type=click.File("w"), required=True, help="all files")
-# @click.option("--arg_dir", type=click.Path(file_okay=False, dir_okay=True, exists=True), required=True)
-# @click.option("--arg_choice", type=click.Choice(["choice1", "choice2"]), required=True, default="choice1", show_default=True)
-@click.option("--date", type=click.DateTime(formats=["%Y/%m/%d"]))
-@click.option("--time", type=click.DateTime(formats=["%H:%M:%S"]))
-@click.option("--datetime", type=click.DateTime(formats=["%A %d %b %y %H:%M:%S"]))
-# @click.option("--arg_choice", type=click.Choice(["choice1", "choice2"]), required=True)
-# @click.option("--date", type=click.DateTime())
-# @click.option("--time", type=click.DateTime())
-# @click.option("--datetime", type=click.DateTime())
-@click.option("--arg_choice1", type=click.Choice(["choice1", "choice2"]), required=True)
-@click.option("--arg_choice2", type=click.Choice(["choice1", "choice2"]), required=True)
-@click.option("--arg_choice3", type=click.Choice(["choice1", "choice2"]), required=True)
-@click.option("--arg_choice4", type=click.Choice(["choice1", "choice2"]), required=True)
-@click.option("--arg_choice5", type=click.Choice(["choice1", "choice2"]), required=True)
-@click.option("--arg_choice6", type=click.Choice(["choice1", "choice2"]), required=True)
-@click.option("--arg_choice7", type=click.Choice(["choice1", "choice2"]), required=True)
-@click.option("--arg_choice8", type=click.Choice(["choice1", "choice2"]), required=True)
-@click.option("--arg_choice9", type=click.Choice(["choice1", "choice2"]), required=True)
-@click.option(
-    "--arg_choice11", type=click.Choice(["choice1", "choice2"]), required=True
-)
-@click.option(
-    "--arg_choice12", type=click.Choice(["choice1", "choice2"]), required=True
-)
-@click.option(
-    "--arg_choice13", type=click.Choice(["choice1", "choice2"]), required=True
-)
-@click.option(
-    "--arg_choice14", type=click.Choice(["choice1", "choice2"]), required=True
-)
-@click.option(
-    "--arg_choice15", type=click.Choice(["choice1", "choice2"]), required=True
-)
-@click.option(
-    "--arg_choice16", type=click.Choice(["choice1", "choice2"]), required=True
-)
-@click.option(
-    "--arg_choice17", type=click.Choice(["choice1", "choice2"]), required=True
-)
-@click.option(
-    "--arg_choice18", type=click.Choice(["choice1", "choice2"]), required=True
-)
-@click.option(
-    "--arg_choice19", type=click.Choice(["choice1", "choice2"]), required=False
-)
-# @click.option("--arg_int_range", type=click.IntRange(min=1, max=4), required=False, hidden=True, default=1)
-# @click.argument("arg_positional", type=click.File("r"), required=True)
-# # @click.option("--arg_float_range", type=click.FloatRange(min=1, max=4), required=True)
-# # @click.option("--arg_passwd", type=click.STRING, hide_input=True)
-# # @click.option(
-# #     "--version", help="Show version of the Toolbox and exit", is_flag=True, callback=print_version, expose_value=False, is_eager=True
-# # )
-# # @click.option("--filenaboxsizerme", type=click.Path(), metavar="toto", help="Check only some TSO (List of comma separated names of TSO)")
-# # @click.group(
-# #     cls=GroupGui,
-# #     # cls=HelpColorsGroup,
-# #     # help_headers_color='green',
-# #     # help_options_color='cyan',
-# #     epilog="Check out the doc at https://staging-tstvisualizationtool.entsoe.eu/static/doc/html/building_models/apply_pint_toot_modifications.html"
-# # )
-@click.version_option("1.1.1")
-def main(**kwargs):
-    import tqdm
-    from loguru import logger
-
-    logger = logger.opt(colors=True)
-    logger.remove()
-    # print(repr(kwargs["b"]))
-    # print(kwargs["hash_type"])
-    # click.echo(kwargs["b"])
-    click.echo(click.style("Hello World!", fg="yellow"))
-
-    fmt = "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <level>{message}</level>"
-    logger.add(
-        sys.stdout,
-        format=fmt,
-        colorize=True,
-        diagnose=False,
-        backtrace=False,
-        catch=True,
-        level="DEBUG",
-    )
-    # logger.add("test.log", format=fmt, colorize=True, diagnose=False, backtrace=False, catch=True, level="DEBUG")
-    click.echo("hello")
-    print(kwargs["arg_choice19"])
-    click.echo(message="hello")
-    logger.error("test")
-    logger.info("test")
-    logger.debug("test")
-    logger.warning("test")
-    logger.success("test")
-    logger.critical("test")
-    logger.info("<cyan>test cyan</>")
-    logger.info("<light-cyan>test cyan</>")
-    logger.log("INFO", "<magenta>test magenta</>")
-    logger.log("INFO", "<magenta><u>test</> magenta</>")
-    print(kwargs)
-    # print(kwargs["arg_file"].read())
-    print("=" * 50)
-    print("Testing print statements...")
-    logger.info("This is a logger message")
-    print("This is a print message")
-
-    # for i in range(10000):
-    #     if i % 2 == 0:
-    #         print(f"Print: {i}")
-    #     else:
-    #         logger.debug(f"Logger: {i}")
-
-    print("Test completed!")
-    logger.success("All tests passed!")
-    # with click.progressbar(list(range(10))) as pbar:
-    #     for i in pbar:
-    #         time.sleep(1)
-    #         print("hello")
-    # for i in tqdm.tqdm(list(range(3)), file=sys.stdout):
-    # print(time.sleep(1))
-    # print("hello again")
-    try:
-        kwargs["test"]
-    except KeyError:
-        logger.exception("")
-    print(kwargs["arg_float"])
-
-
-# @main.command(name="command_1")
-# @click.option(
-#     "--conf", help="csv file defining models we want to apply modifications for PINT/TOOT projects", metavar="<model csv filename>", required=True,
-#     type=click.STRING
-# )
-# @click.option(
-#     "--base_model", metavar="<IIDM filename>", help="Base case merged model (IIDM file), on which will be applied the modifications for each project",
-#     type=click.STRING
-# )
-# def command_1(**kwargs):
-#     print("enter command1")
-#     print(kwargs)
-
-# @main.command(name="command_2", cls=CommandGui)
-# @click.option(
-#     "--conf_2", type=click.Choice(["choice1", "choice2"]), help="csv file defining models we want to apply modifications for PINT/TOOT projects", metavar="<model csv filename>",
-# )
-# @click.option(
-#     "--base_model_2", metavar="<IIDM filename>", required=True, help="Base case merged model (IIDM file), on which will be applied the modifications for each project",
-#     type=click.Path(file_okay=False, dir_okay=True, exists=True)
-# )
-# def command_2(**kwargs):
-#     print("enter command2")
-#     print(kwargs)
-
-if __name__ == "__main__":
-    main(max_content_width=100)
