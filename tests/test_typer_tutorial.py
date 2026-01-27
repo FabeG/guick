@@ -71,6 +71,7 @@ def test_typer_argument_required(tmp_path, mocker, wx_app):
     # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
     with pytest.raises(SystemExit):
         app()
+    mocker.patch("guick.gui.Guick", original_init)
     assert "Missing parameter: name" in (tmp_path / "logfile.log").read_text(
         encoding="utf-8"
     )
@@ -111,6 +112,7 @@ def test_typer_argument_with_default(tmp_path, mocker, args, expected, wx_app):
     # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
     with pytest.raises(SystemExit):
         app()
+    mocker.patch("guick.gui.Guick", original_init)
     assert expected in (tmp_path / "logfile.log").read_text(encoding="utf-8")
 
 
