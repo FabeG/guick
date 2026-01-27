@@ -9,7 +9,7 @@ from loguru import logger
 import guick
 
 
-def test_typer_app(tmp_path, mocker):
+def test_typer_app(tmp_path, mocker, wx_app):
     app = typer.Typer()
 
     @app.command(cls=guick.TyperCommandGui)
@@ -22,7 +22,6 @@ def test_typer_app(tmp_path, mocker):
         level="INFO",
     )
 
-    mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
     # mock click.get_app and return tmp_path
     mocker.patch("click.get_app_dir", return_value=str(tmp_path))
@@ -41,7 +40,7 @@ def test_typer_app(tmp_path, mocker):
     assert "Hello Camilia" in (tmp_path / "logfile.log").read_text(encoding="utf-8")
 
 
-def test_typer_argument_required(tmp_path, mocker):
+def test_typer_argument_required(tmp_path, mocker, wx_app):
     app = typer.Typer()
 
     @app.command(cls=guick.TyperCommandGui)
@@ -54,7 +53,6 @@ def test_typer_argument_required(tmp_path, mocker):
         level="INFO",
     )
 
-    mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
     mocker.patch("click.get_app_dir", return_value=str(tmp_path))
     original_init = guick.Guick
@@ -84,7 +82,7 @@ def test_typer_argument_required(tmp_path, mocker):
         ("Camilia", "Hello Camilia"),
     ],
 )
-def test_typer_argument_with_default(tmp_path, mocker, args, expected):
+def test_typer_argument_with_default(tmp_path, mocker, args, expected, wx_app):
     app = typer.Typer()
 
     @app.command(cls=guick.TyperCommandGui)
@@ -97,7 +95,6 @@ def test_typer_argument_with_default(tmp_path, mocker, args, expected):
         level="INFO",
     )
 
-    mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
     mocker.patch("click.get_app_dir", return_value=str(tmp_path))
     original_init = guick.Guick
@@ -123,7 +120,7 @@ def test_typer_argument_with_default(tmp_path, mocker, args, expected):
         ("Camilia", "Hello Camilia"),
     ],
 )
-def test_typer_argument_with_dynamic_default(tmp_path, mocker, args, expected):
+def test_typer_argument_with_dynamic_default(tmp_path, mocker, args, expected, wx_app):
     app = typer.Typer()
 
     def get_name():
@@ -139,7 +136,6 @@ def test_typer_argument_with_dynamic_default(tmp_path, mocker, args, expected):
         level="INFO",
     )
 
-    mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
     mocker.patch("click.get_app_dir", return_value=str(tmp_path))
     original_init = guick.Guick
@@ -158,7 +154,7 @@ def test_typer_argument_with_dynamic_default(tmp_path, mocker, args, expected):
     assert expected in (tmp_path / "logfile.log").read_text(encoding="utf-8")
 
 
-def test_typer_argument_with_help_text(tmp_path, mocker):
+def test_typer_argument_with_help_text(tmp_path, mocker, wx_app):
     app = typer.Typer()
 
     @app.command(cls=guick.TyperCommandGui)
@@ -168,7 +164,6 @@ def test_typer_argument_with_help_text(tmp_path, mocker):
         """
         print(f"Hello {name}")
 
-    mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
     mocker.patch("click.get_app_dir", return_value=str(tmp_path))
     original_init = guick.Guick
@@ -190,7 +185,7 @@ def test_typer_argument_with_help_text(tmp_path, mocker):
         app()
 
 
-def test_typer_argument_with_help_panel(tmp_path, mocker):
+def test_typer_argument_with_help_panel(tmp_path, mocker, wx_app):
     app = typer.Typer()
 
     @app.command(cls=guick.TyperCommandGui)
@@ -220,7 +215,6 @@ def test_typer_argument_with_help_panel(tmp_path, mocker):
         level="INFO",
     )
 
-    mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
     mocker.patch("click.get_app_dir", return_value=str(tmp_path))
     # Save original
