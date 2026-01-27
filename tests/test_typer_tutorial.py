@@ -23,6 +23,7 @@ def test_typer_app(tmp_path, mocker, wx_app):
         level="INFO",
     )
 
+    mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
     # mock click.get_app and return tmp_path
     mocker.patch("click.get_app_dir", return_value=str(tmp_path))
@@ -54,6 +55,7 @@ def test_typer_argument_required(tmp_path, mocker, wx_app):
         level="INFO",
     )
 
+    mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
     mocker.patch("click.get_app_dir", return_value=str(tmp_path))
     original_init = guick.Guick
@@ -97,6 +99,7 @@ def test_typer_argument_with_default(tmp_path, mocker, args, expected, wx_app):
         level="INFO",
     )
 
+    mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
     mocker.patch("click.get_app_dir", return_value=str(tmp_path))
     original_init = guick.Guick
@@ -139,6 +142,7 @@ def test_typer_argument_with_dynamic_default(tmp_path, mocker, args, expected, w
         level="INFO",
     )
 
+    mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
     mocker.patch("click.get_app_dir", return_value=str(tmp_path))
     original_init = guick.Guick
@@ -167,6 +171,7 @@ def test_typer_argument_with_help_text(tmp_path, mocker, wx_app):
         """
         print(f"Hello {name}")
 
+    mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
     mocker.patch("click.get_app_dir", return_value=str(tmp_path))
     original_init = guick.Guick
@@ -213,6 +218,7 @@ def test_typer_argument_with_help_panel(tmp_path, mocker, wx_app):
         level="INFO",
     )
 
+    mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
     mocker.patch("click.get_app_dir", return_value=str(tmp_path))
     # Save original
@@ -263,6 +269,7 @@ def test_typer_argument_unset_envvar(tmp_path, mocker, wx_app):
         level="INFO",
     )
 
+    mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
     mocker.patch("click.get_app_dir", return_value=str(tmp_path))
     original_init = guick.Guick
@@ -296,6 +303,7 @@ def test_typer_argument_with_envvar(tmp_path, mocker, wx_app):
         level="INFO",
     )
 
+    mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
     mocker.patch("click.get_app_dir", return_value=str(tmp_path))
     original_init = guick.Guick
@@ -330,6 +338,7 @@ def test_typer_argument_with_sec_envvar(tmp_path, mocker, wx_app):
         level="INFO",
     )
 
+    mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
     mocker.patch("click.get_app_dir", return_value=str(tmp_path))
     original_init = guick.Guick
@@ -369,6 +378,7 @@ def test_typer_option_with_help_text(tmp_path, mocker, wx_app):
         else:
             print(f"Hello {name} {lastname}")
 
+    mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
     mocker.patch("click.get_app_dir", return_value=str(tmp_path))
     original_init = guick.Guick
@@ -429,6 +439,7 @@ def test_typer_option_with_help_panel(tmp_path, mocker, wx_app):
         level="INFO",
     )
 
+    mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
     mocker.patch("click.get_app_dir", return_value=str(tmp_path))
     # Save original
@@ -468,6 +479,7 @@ def test_typer_option_required(tmp_path, mocker, wx_app):
         level="INFO",
     )
 
+    mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
     mocker.patch("click.get_app_dir", return_value=str(tmp_path))
     original_init = guick.Guick
@@ -505,6 +517,7 @@ def test_typer_password(tmp_path, mocker, wx_app):
         level="INFO",
     )
 
+    mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
     mocker.patch("click.get_app_dir", return_value=str(tmp_path))
     original_init = guick.Guick
@@ -542,6 +555,7 @@ def test_typer_argument_validate_nok(tmp_path, mocker, wx_app):
         level="INFO",
     )
 
+    mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
     mocker.patch("click.get_app_dir", return_value=str(tmp_path))
     original_init = guick.Guick
@@ -583,6 +597,7 @@ def test_typer_argument_validate_ok(tmp_path, mocker, wx_app):
         level="INFO",
     )
 
+    mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
     mocker.patch("click.get_app_dir", return_value=str(tmp_path))
     original_init = guick.Guick
@@ -625,6 +640,7 @@ def test_typer_version(tmp_path, mocker, wx_app):
         level="INFO",
     )
 
+    mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
     mocker.patch("click.get_app_dir", return_value=str(tmp_path))
     # Save original
