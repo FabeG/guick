@@ -13,6 +13,33 @@ import guick
 import time
 
 
+def test_deprecated_string_option(tmp_path, mocker):
+    @click.command(cls=guick.CommandGui)
+    @click.option("--s", default="no value", deprecated=True)
+    def cli(s):
+        logger.info(f"S:[{s}]")
+        # print("no valuex" in sys.stdout.GetValue())
+    logger.remove()
+    logger.add(
+        tmp_path / "logfile.log",
+        level="INFO",
+    )
+
+    mocker.patch("wx.App")
+    mocker.patch("wx.App.MainLoop")
+    original_init = guick.Guick
+    def init_gui(ctx, size=None):
+        guick = original_init(ctx)
+        guick.cmd_panels["cli"].entries["s"].SetValue("test")
+        guick.on_ok_button(None)
+        return guick
+    mocker.patch("guick.gui.Guick", init_gui)
+    # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
+    with pytest.raises(SystemExit):
+        cli()
+    assert "S:[test]" in (tmp_path / "logfile.log").read_text(encoding="utf-8")
+
+
 @pytest.mark.parametrize(
     ("args", "expect"),
     [
