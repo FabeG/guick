@@ -230,7 +230,7 @@ def test_typer_argument_with_help_panel(tmp_path, mocker, wx_app):
         assert "Required Parameters" in guick.cmd_panels["main"].sections
         assert "Secondary Arguments" in guick.cmd_panels["main"].sections
         guick.on_help(None)
-        dlg = wx.FindWindowByName("AboutDialog")
+        dlg = wx.FindWindowByName("HelpDialog")
         assert "".join(main.__doc__.splitlines()).strip() in "".join(
             dlg.text_ctrl.GetValue().splitlines()
         )
@@ -640,7 +640,7 @@ def test_typer_version(tmp_path, mocker, wx_app):
     def init_gui(ctx, size=None):
         guick = original_init(ctx)
         guick.OnVersion(None)
-        dlg = wx.FindWindowByName("AboutDialog")
+        dlg = wx.FindWindowByName("VersionDialog")
         assert f"Awesome guick Version: {__version__}" in "".join(
             dlg.text_ctrl.GetValue().splitlines()
         )

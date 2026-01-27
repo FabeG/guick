@@ -368,8 +368,8 @@ class MyFileDropTarget(wx.FileDropTarget):
 
 
 class AboutDialog(wx.Dialog):
-    def __init__(self, parent, title, head, text_content, font_size=8):
-        super().__init__(parent, title=title, style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER, name="AboutDialog")
+    def __init__(self, parent, title, head, text_content, font_size=8, name="AboutDialog"):
+        super().__init__(parent, title=title, style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER, name=name)
 
         sizer = wx.BoxSizer(wx.VERTICAL)
 
@@ -483,10 +483,11 @@ class RedirectText:
 class NavButton(wx.Panel):
     """Custom navigation button for sidebar"""
 
-    def __init__(self, parent, label, icon=None):
+    def __init__(self, parent, label, icon=None, deprecated=False):
         super().__init__(parent)
         self.selected = False
         self.label = label
+        self.deprecated = deprecated
 
         # Use system colors
         self.normal_color = wx.SystemSettings.GetColour(wx.SYS_COLOUR_BTNFACE)
@@ -494,9 +495,11 @@ class NavButton(wx.Panel):
         self.selected_color = wx.SystemSettings.GetColour(wx.SYS_COLOUR_HIGHLIGHT)
         self.selected_text_color = wx.SystemSettings.GetColour(wx.SYS_COLOUR_HIGHLIGHTTEXT)
         self.normal_text_color = wx.SystemSettings.GetColour(wx.SYS_COLOUR_BTNTEXT)
+        self.deprecated_colour = blend(self.normal_text_color, self.normal_color, 0.5)
+        self.selected_deprecated_colour = blend(self.selected_text_color, self.selected_color, 0.5)
 
-        self.SetBackgroundColour(self.normal_color)
         self.SetForegroundColour(self.normal_text_color)
+        self.SetBackgroundColour(self.normal_color)
 
         sizer = wx.BoxSizer(wx.HORIZONTAL)
 
@@ -1341,7 +1344,7 @@ class Guick(wx.Frame):
             formatter = click.HelpFormatter()
             self.ctx.command.format_help(self.ctx, formatter)
             description = self.ctx.command.get_help(self.ctx)
-        dlg = AboutDialog(self, "Help", head, description)
+        dlg = AboutDialog(self, "Help", head, description, name="HelpDialog")
         dlg.ShowModal()
         dlg.Destroy()
 
@@ -1360,7 +1363,7 @@ class Guick(wx.Frame):
     def OnVersion(self, event):
         head = self.ctx.command.name
 
-        dlg = AboutDialog(self, "About", head, self.version)
+        dlg = AboutDialog(self, "About", head, self.version, name="VersionDialog")
         dlg.ShowModal()
         dlg.Destroy()
 
