@@ -244,12 +244,15 @@ def test_typer_argument_with_help_panel(tmp_path, mocker, wx_app):
         app()
 
 
-
 def test_typer_argument_unset_envvar(tmp_path, mocker, wx_app):
     app = typer.Typer()
 
     @app.command(cls=guick.TyperCommandGui)
-    def main(name: Annotated[str, typer.Argument(envvar=["AWESOME_NAME", "GOD_NAME"])] = "World"):
+    def main(
+        name: Annotated[
+            str, typer.Argument(envvar=["AWESOME_NAME", "GOD_NAME"])
+        ] = "World"
+    ):
         logger.info(f"Hello {name}")
 
     logger.remove()
@@ -278,7 +281,11 @@ def test_typer_argument_with_envvar(tmp_path, mocker, wx_app):
     app = typer.Typer()
 
     @app.command(cls=guick.TyperCommandGui)
-    def main(name: Annotated[str, typer.Argument(envvar=["AWESOME_NAME", "GOD_NAME"])] = "World"):
+    def main(
+        name: Annotated[
+            str, typer.Argument(envvar=["AWESOME_NAME", "GOD_NAME"])
+        ] = "World"
+    ):
         logger.info(f"Hello {name}")
 
     logger.remove()
@@ -308,7 +315,11 @@ def test_typer_argument_with_sec_envvar(tmp_path, mocker, wx_app):
     app = typer.Typer()
 
     @app.command(cls=guick.TyperCommandGui)
-    def main(name: Annotated[str, typer.Argument(envvar=["AWESOME_NAME", "GOD_NAME"])] = "World"):
+    def main(
+        name: Annotated[
+            str, typer.Argument(envvar=["AWESOME_NAME", "GOD_NAME"])
+        ] = "World"
+    ):
         logger.info(f"Hello {name}")
 
     logger.remove()
@@ -328,7 +339,7 @@ def test_typer_argument_with_sec_envvar(tmp_path, mocker, wx_app):
 
     mocker.patch("guick.gui.Guick", init_gui)
     # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
-    os.environ.pop('AWESOME_NAME', None)
+    os.environ.pop("AWESOME_NAME", None)
     os.environ["GOD_NAME"] = "Anubis"
     with pytest.raises(SystemExit):
         app()
@@ -341,7 +352,9 @@ def test_typer_option_with_help_text(tmp_path, mocker, wx_app):
     @app.command(cls=guick.TyperCommandGui)
     def main(
         name: str,
-        lastname: Annotated[str, typer.Option(help="Last name of person to greet.")] = "",
+        lastname: Annotated[
+            str, typer.Option(help="Last name of person to greet.")
+        ] = "",
         formal: Annotated[bool, typer.Option(help="Say hi formally.")] = False,
     ):
         """
@@ -375,13 +388,16 @@ def test_typer_option_with_help_text(tmp_path, mocker, wx_app):
     with pytest.raises(SystemExit):
         app()
 
+
 def test_typer_option_with_help_panel(tmp_path, mocker, wx_app):
     app = typer.Typer()
 
     @app.command(cls=guick.TyperCommandGui)
     def main(
         name: str,
-        lastname: Annotated[str, typer.Option(help="Last name of person to greet.")] = "",
+        lastname: Annotated[
+            str, typer.Option(help="Last name of person to greet.")
+        ] = "",
         formal: Annotated[
             bool,
             typer.Option(
@@ -471,11 +487,14 @@ def test_typer_option_required(tmp_path, mocker, wx_app):
         encoding="utf-8"
     )
 
+
 def test_typer_password(tmp_path, mocker, wx_app):
     app = typer.Typer()
 
     @app.command(cls=guick.TyperCommandGui)
-    def main(name: str, password: Annotated[str, typer.Option(prompt=True, hide_input=True)]):
+    def main(
+        name: str, password: Annotated[str, typer.Option(prompt=True, hide_input=True)]
+    ):
         logger.info(f"Hello {name}")
 
     logger.remove()
@@ -495,6 +514,136 @@ def test_typer_password(tmp_path, mocker, wx_app):
         guick.on_ok_button(None)
         assert not guick.cmd_panels["main"].entries["name"].HasFlag(wx.TE_PASSWORD)
         assert guick.cmd_panels["main"].entries["password"].HasFlag(wx.TE_PASSWORD)
+        return guick
+
+    mocker.patch("guick.gui.Guick", init_gui)
+    # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
+    with pytest.raises(SystemExit):
+        app()
+
+
+def test_typer_argument_validate_nok(tmp_path, mocker, wx_app):
+    app = typer.Typer()
+
+    def name_callback(value: str):
+        if value != "Camila":
+            raise typer.BadParameter("Only Camila is allowed")
+        return value
+
+    @app.command(cls=guick.TyperCommandGui)
+    def main(name: Annotated[str | None, typer.Option(callback=name_callback)] = None):
+        logger.info(f"Hello {name}")
+
+    logger.remove()
+    logger.add(
+        tmp_path / "logfile.log",
+        level="INFO",
+    )
+
+    mocker.patch("wx.App.MainLoop")
+    mocker.patch("click.get_app_dir", return_value=str(tmp_path))
+    original_init = guick.Guick
+
+    def init_gui(ctx, size=None):
+        guick = original_init(ctx)
+        guick.cmd_panels["main"].entries["name"].SetValue("Rick")
+        guick.on_ok_button(None)
+        error = guick.cmd_panels["main"].text_errors["name"].GetLabel()
+        if error:
+            logger.info(error)
+            guick.on_close_button(None)
+        return guick
+
+    mocker.patch("guick.gui.Guick", init_gui)
+    # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
+    with pytest.raises(SystemExit):
+        app()
+    assert "Only Camila is allowed" in (tmp_path / "logfile.log").read_text(
+        encoding="utf-8"
+    )
+
+
+def test_typer_argument_validate_ok(tmp_path, mocker, wx_app):
+    app = typer.Typer()
+
+    def name_callback(value: str):
+        if value != "Camila":
+            raise typer.BadParameter("Only Camila is allowed")
+        return value
+
+    @app.command(cls=guick.TyperCommandGui)
+    def main(name: Annotated[str | None, typer.Option(callback=name_callback)] = None):
+        logger.info(f"Hello {name}")
+
+    logger.remove()
+    logger.add(
+        tmp_path / "logfile.log",
+        level="INFO",
+    )
+
+    mocker.patch("wx.App.MainLoop")
+    mocker.patch("click.get_app_dir", return_value=str(tmp_path))
+    original_init = guick.Guick
+
+    def init_gui(ctx, size=None):
+        guick = original_init(ctx)
+        guick.cmd_panels["main"].entries["name"].SetValue("Camila")
+        guick.on_ok_button(None)
+        return guick
+
+    mocker.patch("guick.gui.Guick", init_gui)
+    # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
+    with pytest.raises(SystemExit):
+        app()
+    assert "Hello Camila" in (tmp_path / "logfile.log").read_text(encoding="utf-8")
+
+
+def test_typer_version(tmp_path, mocker, wx_app):
+    app = typer.Typer()
+    __version__ = "0.1.0"
+
+    def version_callback(value: bool):
+        if value:
+            print(f"Awesome guick Version: {__version__}")
+            raise typer.Exit()
+
+    @app.command(cls=guick.TyperCommandGui)
+    def main(
+        name: Annotated[str, typer.Option()] = "World",
+        version: Annotated[
+            bool | None,
+            typer.Option("--version", callback=version_callback, is_eager=True),
+        ] = None,
+    ):
+        print(f"Hello {name}")
+
+    logger.remove()
+    logger.add(
+        tmp_path / "logfile.log",
+        level="INFO",
+    )
+
+    mocker.patch("wx.App.MainLoop")
+    mocker.patch("click.get_app_dir", return_value=str(tmp_path))
+    # Save original
+    original_show_modal = wx.Dialog.ShowModal
+
+    # Replace ShowModal for all Dialog instances
+    def mock_show_modal(self):
+        self.Show()
+        return wx.ID_OK
+
+    wx.Dialog.ShowModal = mock_show_modal
+
+    original_init = guick.Guick
+
+    def init_gui(ctx, size=None):
+        guick = original_init(ctx)
+        guick.OnVersion(None)
+        dlg = wx.FindWindowByName("AboutDialog")
+        assert f"Awesome guick Version: {__version__}" in "".join(
+            dlg.text_ctrl.GetValue().splitlines()
+        )
         return guick
 
     mocker.patch("guick.gui.Guick", init_gui)
