@@ -510,6 +510,11 @@ class NavButton(wx.Panel):
 
         # Label
         text = wx.StaticText(self, label=label)
+        if deprecated:
+            # Write them in italic
+            font = text.GetFont()
+            font.SetStyle(wx.FONTSTYLE_ITALIC)
+            text.SetFont(font)
         sizer.Add(text, 1, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 10)
 
         self.SetSizer(sizer)
@@ -540,15 +545,17 @@ class NavButton(wx.Panel):
     def set_selected(self, selected):
         self.selected = selected
         if selected:
+            selected_color = self.selected_deprecated_colour if self.deprecated else self.selected_text_color
             self.SetBackgroundColour(self.selected_color)
             for child in self.GetChildren():
                 if isinstance(child, wx.StaticText):
-                    child.SetForegroundColour(self.selected_text_color)
+                    child.SetForegroundColour(selected_color)
         else:
+            normal_color = self.deprecated_colour if self.deprecated else self.normal_text_color
             self.SetBackgroundColour(self.normal_color)
             for child in self.GetChildren():
                 if isinstance(child, wx.StaticText):
-                    child.SetForegroundColour(self.normal_text_color)
+                    child.SetForegroundColour(normal_color)
         self.Refresh()
 
 
@@ -1261,8 +1268,8 @@ class Guick(wx.Frame):
         # Navigation buttons
         self.nav_buttons = []
         self.cmd_panels = {}
-        for name in self.ctx.command.commands:
-            btn = NavButton(nav_panel, name)
+        for name, command in self.ctx.command.commands.items():
+            btn = NavButton(nav_panel, name, deprecated=command.deprecated)
             btn.Bind(
                 wx.EVT_BUTTON, lambda e, panel_name=name: self.show_panel(panel_name)
             )
