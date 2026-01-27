@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextlib
 import datetime
 import enum
+import importlib.util
 import io
 import json
 import math
@@ -368,7 +369,7 @@ class MyFileDropTarget(wx.FileDropTarget):
 
 class AboutDialog(wx.Dialog):
     def __init__(self, parent, title, head, text_content, font_size=8):
-        super().__init__(parent, title=title, style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
+        super().__init__(parent, title=title, style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER, name="AboutDialog")
 
         sizer = wx.BoxSizer(wx.VERTICAL)
 
@@ -714,6 +715,7 @@ class ParameterSection:
         self.config = config
         self.entry = {}
         self.text_error = {}
+        self.static_text = {}
 
         if not params:
             return  # nothing to render
@@ -896,6 +898,7 @@ class ParameterSection:
                     )
                 self.entry[param.name] = widgets.entry
                 self.text_error[param.name] = widgets.text_error
+                self.static_text[param.name] = widgets.static_text
                 self.gbs.Add(widgets.static_text, (2 * idx_param, 0))
                 self.gbs.Add(widgets.entry, flag=wx.EXPAND, pos=(2 * idx_param, 1))
                 if hasattr(widgets, "button"):
@@ -1041,9 +1044,11 @@ class CommandPanel(wx.Panel):
         self.SetBackgroundColour(wx.SystemSettings.GetColour(wx.SYS_COLOUR_WINDOW))
         self.entries = {}
         self.text_errors = {}
+        self.static_texts = {}
         self.ctx = ctx
         self.command_name = name
         self.config = config
+        self.sections = {}
 
         # Get the command
         try:
@@ -1083,11 +1088,12 @@ class CommandPanel(wx.Panel):
 
         for panel in list_panels:
             if panels[panel]:
-                self.sections = ParameterSection(
+                self.sections[panel] = ParameterSection(
                     self.config, command.name, self, panel, panels[panel], main_boxsizer
                 )
-                self.entries.update(self.sections.entry)
-                self.text_errors.update(self.sections.text_error)
+                self.entries.update(self.sections[panel].entry)
+                self.text_errors.update(self.sections[panel].text_error)
+                self.static_texts.update(self.sections[panel].static_text)
 
         self.SetSizerAndFit(main_boxsizer)
 
