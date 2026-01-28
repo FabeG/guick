@@ -483,11 +483,13 @@ class RedirectText:
 class NavButton(wx.Panel):
     """Custom navigation button for sidebar"""
 
-    def __init__(self, parent, label, icon=None, deprecated=False):
+    def __init__(self, parent, label, icon=None, deprecated=False, help=None):
         super().__init__(parent)
         self.selected = False
+        self.static_text = None
         self.label = label
         self.deprecated = deprecated
+        self.help = help
 
         # Use system colors
         self.normal_color = wx.SystemSettings.GetColour(wx.SYS_COLOUR_BTNFACE)
@@ -512,13 +514,15 @@ class NavButton(wx.Panel):
             sizer.Add(icon_text, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 15)
 
         # Label
-        text = wx.StaticText(self, label=label)
+        self.static_text = wx.StaticText(self, label=label)
+        if help:
+            self.static_text.SetToolTip(help)
         if deprecated:
             # Write them in italic
-            font = text.GetFont()
+            font = self.static_text.GetFont()
             font.SetStyle(wx.FONTSTYLE_ITALIC)
-            text.SetFont(font)
-        sizer.Add(text, 1, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 10)
+            self.static_text.SetFont(font)
+        sizer.Add(self.static_text, 1, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 10)
 
         self.SetSizer(sizer)
         self.SetMinSize((-1, 50))
@@ -1272,7 +1276,7 @@ class Guick(wx.Frame):
         self.nav_buttons = []
         self.cmd_panels = {}
         for name, command in self.ctx.command.commands.items():
-            btn = NavButton(nav_panel, name, deprecated=command.deprecated)
+            btn = NavButton(nav_panel, name, deprecated=command.deprecated, help=command.help)
             btn.Bind(
                 wx.EVT_BUTTON, lambda e, panel_name=name: self.show_panel(panel_name)
             )
