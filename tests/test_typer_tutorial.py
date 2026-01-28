@@ -503,6 +503,8 @@ def test_typer_password(tmp_path, mocker, wx_app):
         level="INFO",
     )
 
+    if wx.GetApp() is None:
+        wxapp = wx.App()
     mocker.patch("wx.App.MainLoop")
     mocker.patch("click.get_app_dir", return_value=str(tmp_path))
     original_init = guick.Guick
@@ -597,6 +599,8 @@ def test_typer_argument_validate_ok(tmp_path, mocker, wx_app):
     assert "Hello Camila" in (tmp_path / "logfile.log").read_text(encoding="utf-8")
 
 
+
+
 def test_typer_version(tmp_path, mocker, wx_app):
     app = typer.Typer()
     __version__ = "0.1.0"
@@ -649,3 +653,167 @@ def test_typer_version(tmp_path, mocker, wx_app):
     # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
     with pytest.raises(SystemExit):
         app()
+
+def test_typer_argument_with_commands(tmp_path, mocker, wx_app):
+    app = typer.Typer(cls=guick.TyperGroupGui)
+
+    @app.command()
+    def create(username: str):
+        """
+        Create a user.
+        """
+        logger.info(f"Creating user: {username}")
+
+
+    @app.command(deprecated=True)
+    def delete(username: str):
+        """
+        Delete a user.
+
+        This is deprecated and will stop being supported soon.
+        """
+        logger.info(f"Deleting user: {username}")
+
+    logger.remove()
+    logger.add(
+        tmp_path / "logfile.log",
+        level="INFO",
+    )
+
+    wxapp = wx.GetApp()
+    if wxapp is None:
+        wxapp = wx.App()
+    mocker.patch("wx.App.MainLoop")
+    mocker.patch("click.get_app_dir", return_value=str(tmp_path))
+    original_init = guick.Guick
+
+    def init_gui(ctx, size=None):
+        guick = original_init(ctx)
+        guick.cmd_panels["create"].entries["username"].SetValue("Camila")
+        guick.on_ok_button(None)
+        guick.show_panel("delete")
+        guick.cmd_panels["delete"].entries["username"].SetValue("Camila")
+        guick.on_ok_button(None)
+        for (name, btn) in guick.nav_buttons:
+            if name == "delete":
+                assert "Delete a user" in btn.static_text.GetToolTipText()
+            elif name == "create":
+                assert "Create a user." in btn.static_text.GetToolTipText()
+        return guick
+
+    mocker.patch("guick.gui.Guick", init_gui)
+    # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
+    with pytest.raises(SystemExit):
+        app()
+    assert "Creating user: Camila" in (tmp_path / "logfile.log").read_text(encoding="utf-8")
+    assert "Deleting user: Camila" in (tmp_path / "logfile.log").read_text(encoding="utf-8")
+
+
+def test_typer_types(tmp_path, mocker, wx_app):
+    app = typer.Typer()
+
+    @app.command(cls=guick.TyperCommandGui)
+    def main(name: str, age: int = 20, height_meters: float = 1.89, female: bool = True):
+        logger.info(f"NAME is {name}, of type: {type(name)}")
+        logger.info(f"--age is {age}, of type: {type(age)}")
+        logger.info(f"--height-meters is {height_meters}, of type: {type(height_meters)}")
+        logger.info(f"--female is {female}, of type: {type(female)}")
+
+    logger.remove()
+    logger.add(
+        tmp_path / "logfile.log",
+        level="INFO",
+    )
+
+    mocker.patch("wx.App.MainLoop")
+    # mock click.get_app and return tmp_path
+    mocker.patch("click.get_app_dir", return_value=str(tmp_path))
+    original_init = guick.Guick
+
+    def init_gui(ctx, size=None):
+        guick = original_init(ctx)
+        guick.cmd_panels["main"].entries["name"].SetValue("Camila")
+        guick.cmd_panels["main"].entries["age"].SetValue("15")
+        guick.cmd_panels["main"].entries["height_meters"].SetValue("1.7")
+        guick.cmd_panels["main"].entries["female"].SetValue(True)
+        guick.on_ok_button(None)
+        guick.cmd_panels["main"].entries["age"].SetValue("15.3")
+        guick.on_ok_button(None)
+        error = guick.cmd_panels["main"].text_errors["age"].GetLabel()
+        if error:
+            logger.info(error)
+        return guick
+
+    mocker.patch("guick.gui.Guick", init_gui)
+    # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
+    with pytest.raises(SystemExit):
+        app()
+    assert "NAME is Camila, of type: <class 'str'>" in (tmp_path / "logfile.log").read_text(encoding="utf-8")
+    assert "--age is 15, of type: <class 'int'>" in (tmp_path / "logfile.log").read_text(encoding="utf-8")
+    assert "--height-meters is 1.7, of type: <class 'float'>" in (tmp_path / "logfile.log").read_text(encoding="utf-8")
+    assert "--female is True, of type: <class 'bool'>" in (tmp_path / "logfile.log").read_text(encoding="utf-8")
+    assert "'15.3' is not a valid integer" in (tmp_path / "logfile.log").read_text(encoding="utf-8")
+
+
+def test_typer_number(tmp_path, mocker, wx_app):
+    app = typer.Typer()
+
+    @app.command(cls=guick.TyperCommandGui)
+    def main(
+        id: Annotated[int, typer.Argument(min=0, max=1000)],
+        age: Annotated[int, typer.Option(min=18)] = 20,
+        score: Annotated[float, typer.Option(max=100)] = 0,
+    ):
+        logger.info(f"ID is {id}")
+        logger.info(f"--age is {age}")
+        logger.info(f"--score is {score}")
+
+    logger.remove()
+    logger.add(
+        tmp_path / "logfile.log",
+        level="INFO",
+    )
+
+    mocker.patch("wx.App.MainLoop")
+    # mock click.get_app and return tmp_path
+    mocker.patch("click.get_app_dir", return_value=str(tmp_path))
+    original_init = guick.Guick
+
+    def init_gui(ctx, size=None):
+        guick = original_init(ctx)
+        # invalid ID, but Slider prevents to go outside the range
+        guick.cmd_panels["main"].entries["id"].SetValue(1002)
+        guick.on_ok_button(None)
+        # invalid age
+        guick.cmd_panels["main"].entries["id"].SetValue(5)
+        guick.cmd_panels["main"].entries["age"].SetValue("15")
+        guick.on_ok_button(None)
+        error = guick.cmd_panels["main"].text_errors["age"].GetLabel()
+        if error:
+            logger.info(error)
+            # invalid score
+        guick.cmd_panels["main"].entries["id"].SetValue(6)
+        guick.cmd_panels["main"].entries["age"].SetValue("18")
+        guick.cmd_panels["main"].entries["score"].SetValue("100.5")
+        guick.on_ok_button(None)
+        error = guick.cmd_panels["main"].text_errors["score"].GetLabel()
+        if error:
+            logger.info(error)
+
+        # all fine
+        guick.cmd_panels["main"].entries["id"].SetValue(5)
+        guick.cmd_panels["main"].entries["age"].SetValue("21")
+        guick.cmd_panels["main"].entries["score"].SetValue("-5")
+        guick.on_ok_button(None)
+        return guick
+
+    mocker.patch("guick.gui.Guick", init_gui)
+    # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
+    with pytest.raises(SystemExit):
+        app()
+    assert "ID is 1000" in (tmp_path / "logfile.log").read_text(encoding="utf-8")
+    assert "15 is not in the range x>=18." in (tmp_path / "logfile.log").read_text(encoding="utf-8")
+    assert "100.5 is not in the range x<=100." in (tmp_path / "logfile.log").read_text(encoding="utf-8")
+    assert "ID is 5" in (tmp_path / "logfile.log").read_text(encoding="utf-8")
+    assert "--age is 21" in (tmp_path / "logfile.log").read_text(encoding="utf-8")
+    assert "--score is -5.0" in (tmp_path / "logfile.log").read_text(encoding="utf-8")
