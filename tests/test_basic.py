@@ -659,19 +659,19 @@ def test_datetime_option_default(tmp_path, mocker, args, expect):
 
 
 @pytest.mark.parametrize(
-    ("args", "expect"),
+    ("args", "date_format", "expect_entry", "expected_date"),
     [
-        ("23-50-52", "23:50:52"),
+        ((23, 50, 52), "%H-%M-%S", "23-50-52", "23:50:52"),
         # ("2015-09-29T09:11:22", "2015-09-29T09:11:22"),
         # ("2015-09", "'2015-09' does not match the formats '%Y-%m-%d', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S'."),
     ],
 )
-def test_datetime_option_with_timepicker(tmp_path, mocker, args, expect):
+def test_datetime_option_with_timepicker(tmp_path, mocker, args, date_format, expect_entry, expected_date):
 
     mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
 
-    dt = wx.DateTime.FromHMS(23, 50, 52)
+    dt = wx.DateTime.FromHMS(*args)
 
     RealCalendarCtrl = wx.adv.TimePickerCtrl
     def calendar_factory(parent, *args, **kwargs):
@@ -697,7 +697,7 @@ def test_datetime_option_with_timepicker(tmp_path, mocker, args, expect):
     wx.Dialog.ShowModal = mock_show_modal
 
     @click.command(cls=guick.CommandGui)
-    @click.option("--start_hour", type=click.DateTime(formats=["%H-%M-%S"]))
+    @click.option("--start_hour", type=click.DateTime(formats=[date_format]))
     def set_date(start_hour):
         logger.info(start_hour.strftime("%H:%M:%S"))
     logger.remove()
@@ -716,6 +716,7 @@ def test_datetime_option_with_timepicker(tmp_path, mocker, args, expect):
         ok_btn = dlg.FindWindowById(wx.ID_OK)
         ok_btn.Command(wx.CommandEvent(wx.EVT_BUTTON.typeId))
         guick.on_ok_button(None)
+        assert guick.cmd_panels["set-date"].entries["start_hour"].GetValue() == expect_entry
         error = guick.cmd_panels["set-date"].text_errors["start_hour"].GetLabel()
         if error:
             logger.info(error)
@@ -725,23 +726,22 @@ def test_datetime_option_with_timepicker(tmp_path, mocker, args, expect):
     # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
     with pytest.raises(SystemExit):
         set_date()
-    assert expect in (tmp_path / "logfile.log").read_text(encoding="utf-8")
+    assert expected_date in (tmp_path / "logfile.log").read_text(encoding="utf-8")
 
 
 @pytest.mark.parametrize(
-    ("args", "expect"),
+    ("args", "date_format", "expect_entry", "expected_date"),
     [
-        ("2015-09-29", "2015-09-29T00:00:00"),
-        # ("2015-09-29T09:11:22", "2015-09-29T09:11:22"),
-        # ("2015-09", "'2015-09' does not match the formats '%Y-%m-%d', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S'."),
+        ((28, 9, 2015), "%Y %m %d", "2015 09 28", "2015-09-28T00:00:00"),
+        ((28, 9, 2015), "%A %B %d, %Y", "Monday September 28, 2O15", "2015-09-28T00:00:00"),
     ],
 )
-def test_datetime_option_with_datepicker(tmp_path, mocker, args, expect):
+def test_datetime_option_with_datepicker(tmp_path, mocker, args, date_format, expect_entry, expected_date):
 
     mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
 
-    dt = wx.DateTime.FromDMY(29, 8, 2015)
+    dt = wx.DateTime.FromDMY(args[0], args[1] - 1, args[2])
 
     RealCalendarCtrl = wx.adv.CalendarCtrl
     def calendar_factory(parent, *args, **kwargs):
@@ -767,7 +767,7 @@ def test_datetime_option_with_datepicker(tmp_path, mocker, args, expect):
     wx.Dialog.ShowModal = mock_show_modal
 
     @click.command(cls=guick.CommandGui)
-    @click.option("--start_date", type=click.DateTime(formats=["%Y %m %d"]))
+    @click.option("--start_date", type=click.DateTime(formats=[date_format]))
     def set_date(start_date):
         logger.info(start_date.strftime("%Y-%m-%dT%H:%M:%S"))
     logger.remove()
@@ -786,6 +786,7 @@ def test_datetime_option_with_datepicker(tmp_path, mocker, args, expect):
         ok_btn = dlg.FindWindowById(wx.ID_OK)
         ok_btn.Command(wx.CommandEvent(wx.EVT_BUTTON.typeId))
         guick.on_ok_button(None)
+        assert guick.cmd_panels["set-date"].entries["start_date"].GetValue() == expect_entry
         error = guick.cmd_panels["set-date"].text_errors["start_date"].GetLabel()
         if error:
             logger.info(error)
@@ -795,29 +796,250 @@ def test_datetime_option_with_datepicker(tmp_path, mocker, args, expect):
     # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
     with pytest.raises(SystemExit):
         set_date()
-    assert expect in (tmp_path / "logfile.log").read_text(encoding="utf-8")
-def test_datetime_option_custom(tmp_path, mocker):
-    @click.command(cls=guick.CommandGui)
-    @click.option("--start_date", type=click.DateTime(formats=["%A %B %d, %Y"]))
-    def cli(start_date):
-        logger.info(start_date.strftime("%Y-%m-%dT%H:%M:%S"))
+    assert expected_date in (tmp_path / "logfile.log").read_text(encoding="utf-8")
 
+
+@pytest.mark.parametrize(
+    ("args", "date_format", "expect_entry", "expected_date"),
+    [
+        ((23, 50, 52, 23, 8, 1987), "%y/%m/%d %H:%M:%S", "87/08/23 23:50:52", "1987-08-23T23:50:52"),
+        # ("2015-09-29T09:11:22", "2015-09-29T09:11:22"),
+        # ("2015-09", "'2015-09' does not match the formats '%Y-%m-%d', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S'."),
+    ],
+)
+def test_datetime_option_with_datetimepicker(tmp_path, mocker, args, date_format, expect_entry, expected_date):
+
+    mocker.patch("wx.App")
+    mocker.patch("wx.App.MainLoop")
+
+    dt = wx.DateTime.FromHMS(*args[:3])
+
+    RealTimePickerCtrl = wx.adv.TimePickerCtrl
+    def timepicker_factory(parent, *args, **kwargs):
+        ctrl = RealTimePickerCtrl(parent, *args, **kwargs)
+        ctrl.Hide()
+        ctrl.GetValue = mocker.Mock(return_value=dt)
+        ctrl.SetValue = mocker.Mock()
+        return ctrl
+
+    mocker.patch(
+        "guick.gui.wx.adv.TimePickerCtrl",
+        side_effect=timepicker_factory
+    )
+
+    dt2 = wx.DateTime.FromDMY(args[3], args[4] - 1, args[5])
+
+    RealCalendarCtrl = wx.adv.CalendarCtrl
+    def calendar_factory(parent, *args, **kwargs):
+        ctrl = RealCalendarCtrl(parent, *args, **kwargs)
+        ctrl.Hide()
+        ctrl.GetDate = mocker.Mock(return_value=dt2)
+        ctrl.SetDate = mocker.Mock()
+        return ctrl
+
+    mocker.patch(
+        "guick.gui.wx.adv.CalendarCtrl",
+        side_effect=calendar_factory
+    )
+
+    # Save original
+    original_show_modal = wx.Dialog.ShowModal
+
+    # Replace ShowModal for all Dialog instances
+    def mock_show_modal(self):
+        self.Show()
+        return wx.ID_OK
+
+    wx.Dialog.ShowModal = mock_show_modal
+
+    @click.command(cls=guick.CommandGui)
+    @click.option("--start_datetime", type=click.DateTime(formats=[date_format]))
+    def set_date(start_datetime):
+        logger.info(start_datetime.strftime("%Y-%m-%dT%H:%M:%S"))
     logger.remove()
     logger.add(
         tmp_path / "logfile.log",
         level="INFO",
     )
-    mocker.patch("wx.App")
-    mocker.patch("wx.App.MainLoop")
 
     original_init = guick.Guick
     def init_gui(ctx, size=None):
         guick = original_init(ctx)
-        guick.cmd_panels["cli"].entries["start_date"].SetValue("Wednesday June 05, 2010")
+        # guick.cmd_panels["cli"].entries["start_date"].SetValue(args)
+        param = [param for param in guick.cmd_panels["set-date"].ctx.command.params if param.name == "start_datetime"][0]
+        guick.cmd_panels["set-date"].sections["Optional Parameters"].date_time_picker(None, param)
+        dlg = wx.FindWindowByName("DatePicker")
+        ok_btn = dlg.FindWindowById(wx.ID_OK)
+        ok_btn.Command(wx.CommandEvent(wx.EVT_BUTTON.typeId))
         guick.on_ok_button(None)
+        assert guick.cmd_panels["set-date"].entries["start_datetime"].GetValue() == expect_entry
+        error = guick.cmd_panels["set-date"].text_errors["start_datetime"].GetLabel()
+        if error:
+            logger.info(error)
+            guick.on_close_button(None)
         return guick
     mocker.patch("guick.gui.Guick", init_gui)
     # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
     with pytest.raises(SystemExit):
-        cli()
-    assert "2010-06-05T00:00:00" in (tmp_path / "logfile.log").read_text(encoding="utf-8")
+        set_date()
+    assert expected_date in (tmp_path / "logfile.log").read_text(encoding="utf-8")
+
+
+
+def test_datetime_option_filename_to_read(tmp_path, mocker):
+
+    mocker.patch("wx.App")
+    mocker.patch("wx.App.MainLoop")
+
+    tmp_file = tmp_path / "tempfile.txt"
+    tmp_file.write_text("Temporary file content", encoding="utf-8")
+
+    mock_dialog = mocker.Mock()
+    mock_dialog.GetPath.return_value = str(tmp_file)
+    mock_dialog.ShowModal.return_value = wx.ID_OK  # if needed
+
+    mocker.patch(
+        "guick.gui.wx.FileDialog",
+        return_value=mock_dialog
+    )
+
+
+    # Save original
+    original_show_modal = wx.Dialog.ShowModal
+
+    # Replace ShowModal for all Dialog instances
+    def mock_show_modal(self):
+        self.Show()
+        return wx.ID_OK
+
+    wx.Dialog.ShowModal = mock_show_modal
+
+    @click.command(cls=guick.CommandGui)
+    @click.option("--filename", type=click.Path(exists=True, file_okay=True, dir_okay=False, readable=True, path_type=str), help="Excel files (.csv, .xlsx)")
+    def set_file(filename):
+        logger.info(filename)
+    logger.remove()
+    logger.add(
+        tmp_path / "logfile.log",
+        level="INFO",
+    )
+
+    original_init = guick.Guick
+    def init_gui(ctx, size=None):
+        guick = original_init(ctx)
+        # guick.cmd_panels["cli"].entries["start_date"].SetValue(args)
+        param = [param for param in guick.cmd_panels["set-file"].ctx.command.params if param.name == "filename"][0]
+        guick.cmd_panels["set-file"].sections["Optional Parameters"].file_open(None, param)
+        guick.on_ok_button(None)
+        assert guick.cmd_panels["set-file"].entries["filename"].GetValue() == str(tmp_file)
+        return guick
+    mocker.patch("guick.gui.Guick", init_gui)
+    # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
+    with pytest.raises(SystemExit):
+        set_file()
+    assert str(tmp_file) in (tmp_path / "logfile.log").read_text(encoding="utf-8")
+
+
+def test_datetime_option_filename_to_write(tmp_path, mocker):
+
+    mocker.patch("wx.App")
+    mocker.patch("wx.App.MainLoop")
+
+    tmp_file = tmp_path / "tempfile.txt"
+    tmp_file.write_text("Temporary file content", encoding="utf-8")
+
+    mock_dialog = mocker.Mock()
+    mock_dialog.GetPath.return_value = str(tmp_file)
+    mock_dialog.ShowModal.return_value = wx.ID_OK  # if needed
+
+    mocker.patch(
+        "guick.gui.wx.FileDialog",
+        return_value=mock_dialog
+    )
+
+
+    # Save original
+    original_show_modal = wx.Dialog.ShowModal
+
+    # Replace ShowModal for all Dialog instances
+    def mock_show_modal(self):
+        self.Show()
+        return wx.ID_OK
+
+    wx.Dialog.ShowModal = mock_show_modal
+
+    @click.command(cls=guick.CommandGui)
+    @click.option("--filename", type=click.Path(exists=False, file_okay=True, dir_okay=False, readable=False, writable=True, path_type=str), help="Text files (.log, .text)")
+    def set_file(filename):
+        logger.info(filename)
+    logger.remove()
+    logger.add(
+        tmp_path / "logfile.log",
+        level="INFO",
+    )
+
+    original_init = guick.Guick
+    def init_gui(ctx, size=None):
+        guick = original_init(ctx)
+        # guick.cmd_panels["cli"].entries["start_date"].SetValue(args)
+        param = [param for param in guick.cmd_panels["set-file"].ctx.command.params if param.name == "filename"][0]
+        guick.cmd_panels["set-file"].sections["Optional Parameters"].file_open(None, param)
+        guick.on_ok_button(None)
+        assert guick.cmd_panels["set-file"].entries["filename"].GetValue() == str(tmp_file)
+        return guick
+    mocker.patch("guick.gui.Guick", init_gui)
+    # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
+    with pytest.raises(SystemExit):
+        set_file()
+    assert str(tmp_file) in (tmp_path / "logfile.log").read_text(encoding="utf-8")
+
+
+def test_datetime_option_dirname(tmp_path, mocker):
+
+    mocker.patch("wx.App")
+    mocker.patch("wx.App.MainLoop")
+
+    mock_dialog = mocker.Mock()
+    mock_dialog.GetPath.return_value = str(tmp_path)
+    mock_dialog.ShowModal.return_value = wx.ID_OK  # if needed
+
+    mocker.patch(
+        "guick.gui.wx.DirDialog",
+        return_value=mock_dialog
+    )
+
+
+    # Save original
+    original_show_modal = wx.Dialog.ShowModal
+
+    # Replace ShowModal for all Dialog instances
+    def mock_show_modal(self):
+        self.Show()
+        return wx.ID_OK
+
+    wx.Dialog.ShowModal = mock_show_modal
+
+    @click.command(cls=guick.CommandGui)
+    @click.option("--folder", type=click.Path(exists=True, file_okay=False, dir_okay=True, readable=False, writable=True, path_type=str))
+    def set_folder(folder):
+        logger.info(folder)
+    logger.remove()
+    logger.add(
+        tmp_path / "logfile.log",
+        level="INFO",
+    )
+
+    original_init = guick.Guick
+    def init_gui(ctx, size=None):
+        guick = original_init(ctx)
+        # guick.cmd_panels["cli"].entries["start_date"].SetValue(args)
+        param = [param for param in guick.cmd_panels["set-folder"].ctx.command.params if param.name == "folder"][0]
+        guick.cmd_panels["set-folder"].sections["Optional Parameters"].dir_open(None, param)
+        guick.on_ok_button(None)
+        assert guick.cmd_panels["set-folder"].entries["folder"].GetValue() == str(tmp_path)
+        return guick
+    mocker.patch("guick.gui.Guick", init_gui)
+    # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
+    with pytest.raises(SystemExit):
+        set_folder()
+    assert str(tmp_path) in (tmp_path / "logfile.log").read_text(encoding="utf-8")

@@ -797,45 +797,13 @@ class ParameterSection:
                 if isinstance(param.type, click.File) or (
                     isinstance(param.type, click.Path) and param.type.file_okay
                 ):
-                    multiple = (hasattr(param, "multiple") and param.multiple) or (
-                        param.nargs != 1
-                    )
-                    # Read mode
-                    if (hasattr(param.type, "readable") and param.type.readable) or (
-                        hasattr(param.type, "mode") and "r" in param.type.mode
-                    ):
-                        mode = "read"
-                    # Write mode (overwrite readable if both are True)
-                    if (hasattr(param.type, "writable") and param.type.writable) or (
-                        hasattr(param.type, "mode") and "w" in param.type.mode
-                    ):
-                        mode = "write"
-                    # If help text is something like:
-                    # Excel file (.xlsx, .csv)
-                    # Text file (.txt or .log)
-                    # Extract the file type and the extensions, so that the file
-                    # dialog can filter the files
-                    wildcards = "All files|*.*"
-                    if hasattr(param, "help") and param.help:
-                        wildcard_raw = re.search(
-                            r"(\w+) file[s]? \(([a-zA-Z ,\.]*)\)", param.help
-                        )
-                        if wildcard_raw:
-                            file_type, extensions_raw = wildcard_raw.groups()
-                            extensions = re.findall(
-                                r"\.(\w+(?:\.\w+)?)", extensions_raw
-                            )
-                            extensions_text = ";".join(
-                                [f"*.{ext}" for ext in extensions]
-                            )
-                            wildcards = f"{file_type} files|{extensions_text}"
                     widgets = PathEntry(
                         parent=self.panel,
                         param=param,
                         default_text=prefilled_value,
                         hint=hint_value,
-                        callback=lambda evt, panel=self.panel, param=param.name, wildcards=wildcards, mode=mode, multiple=multiple: self.file_open(
-                            evt, panel, param, wildcards, mode, multiple
+                        callback=lambda evt, param=param: self.file_open(
+                            evt, param,
                         ),
                     )
                     # self.button[param.name] = widgets.button
@@ -847,8 +815,8 @@ class ParameterSection:
                         param=param,
                         default_text=prefilled_value,
                         hint=hint_value,
-                        callback=lambda evt, panel=self.panel, param=param.name: self.dir_open(
-                            evt, panel, param
+                        callback=lambda evt, param=param.name: self.dir_open(
+                            evt, param
                         ),
                     )
                     # self.button[param.name] = widgets.button
@@ -1014,9 +982,9 @@ class ParameterSection:
                     ).strftime(most_complete_format)
                 )
 
-    def dir_open(self, event, panel, param):
+    def dir_open(self, event, param):
         dlg = wx.DirDialog(
-            panel,
+            self.panel,
             message="Choose Directory",
             defaultPath=os.getcwd(),
             style=wx.RESIZE_BORDER,
@@ -1026,8 +994,41 @@ class ParameterSection:
             dlg.Destroy()
             self.entry[param].SetValue(path)
 
-    def file_open(self, event, panel, param, wildcards="All files|*.*", mode="read", multiple=False):
-        path = self.entry[param].GetValue()
+    def file_open(self, event, param):
+        # Should we let the user select multiple files?
+        multiple = (hasattr(param, "multiple") and param.multiple) or (
+            param.nargs != 1
+        )
+        # Read mode ?
+        if (hasattr(param.type, "readable") and param.type.readable) or (
+            hasattr(param.type, "mode") and "r" in param.type.mode
+        ):
+            mode = "read"
+        # Write mode (overwrite readable if both are True)
+        if (hasattr(param.type, "writable") and param.type.writable) or (
+            hasattr(param.type, "mode") and "w" in param.type.mode
+        ):
+            mode = "write"
+        # If help text is something like:
+        # Excel file (.xlsx, .csv)
+        # Text file (.txt or .log)
+        # Extract the file type and the extensions, so that the file
+        # dialog can filter the files
+        wildcards = "All files|*.*"
+        if hasattr(param, "help") and param.help:
+            wildcard_raw = re.search(
+                r"(\w+) file[s]? \(([a-zA-Z ,\.]*)\)", param.help
+            )
+            if wildcard_raw:
+                file_type, extensions_raw = wildcard_raw.groups()
+                extensions = re.findall(
+                    r"\.(\w+(?:\.\w+)?)", extensions_raw
+                )
+                extensions_text = ";".join(
+                    [f"*.{ext}" for ext in extensions]
+                )
+                wildcards = f"{file_type} files|{extensions_text}"
+        path = self.entry[param.name].GetValue()
         message = "Choose a file"
         last_folder = Path(path).parent if path != "" else os.getcwd()
         if mode == "read":
@@ -1038,7 +1039,7 @@ class ParameterSection:
         else:
             style = wx.FD_SAVE | wx.FD_CHANGE_DIR | wx.FD_OVERWRITE_PROMPT
         dlg = wx.FileDialog(
-            panel,
+            self.panel,
             message=message,
             defaultDir=str(last_folder),
             defaultFile="",
@@ -1055,7 +1056,7 @@ class ParameterSection:
             else:
                 path = dlg.GetPath()
             dlg.Destroy()
-            self.entry[param].SetValue(path)
+            self.entry[param.name].SetValue(path)
 
 
 class CommandPanel(wx.Panel):
