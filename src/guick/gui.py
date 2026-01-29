@@ -976,7 +976,7 @@ class ParameterSection:
                 )
                 self.entry[param.name].SetValue(
                     datetime.datetime.fromisoformat(
-                        self.date_picker.GetValue().FormatISODate()
+                        self.date_picker.GetDate().FormatISODate()
                         + " "
                         + self.time_picker.GetValue().FormatISOTime()
                     ).strftime(most_complete_format)
@@ -992,7 +992,7 @@ class ParameterSection:
         if dlg.ShowModal() == wx.ID_OK:
             path = dlg.GetPath()
             dlg.Destroy()
-            self.entry[param].SetValue(path)
+            self.entry[param.name].SetValue(path)
 
     def file_open(self, event, param):
         # Should we let the user select multiple files?
