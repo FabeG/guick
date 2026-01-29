@@ -884,34 +884,14 @@ class ParameterSection:
 
                 # Date
                 elif isinstance(param.type, click.types.DateTime):
-                    # Identify required input types
-                    show_date = any(
-                        [
-                            bool(re.search(r"%[YymdUuVWjABbax]", format_str))
-                            for format_str in param.type.formats
-                        ]
-                    )
-                    show_time = any(
-                        [
-                            bool(re.search(r"%[HIpMSfzZX]", format_str))
-                            for format_str in param.type.formats
-                        ]
-                    )
-                    if show_time and not show_date:
-                        mode = "time"
-                    elif show_date and not show_time:
-                        mode = "date"
-                    else:
-                        mode = "datetime"
                     widgets = DateTimeEntry(
                         parent=self.panel,
                         param=param,
                         default_text=prefilled_value,
                         hint=hint_value,
-                        callback=lambda evt, param=param, mode=mode: self.date_time_picker(
-                            evt, param, mode
+                        callback=lambda evt, param=param: self.date_time_picker(
+                            evt, param,
                         ),
-                        mode=mode,
                     )
                 else:
                     widgets = NormalEntry(
@@ -936,7 +916,26 @@ class ParameterSection:
 
         # return self.panel
 
-    def date_time_picker(self, event, param, mode="datetime"):
+    def date_time_picker(self, event, param):
+        # Identify required input types
+        show_date = any(
+            [
+                bool(re.search(r"%[YymdUuVWjABbax]", format_str))
+                for format_str in param.type.formats
+            ]
+        )
+        show_time = any(
+            [
+                bool(re.search(r"%[HIpMSfzZX]", format_str))
+                for format_str in param.type.formats
+            ]
+        )
+        if show_time and not show_date:
+            mode = "time"
+        elif show_date and not show_time:
+            mode = "date"
+        else:
+            mode = "datetime"
         mouse_pos = wx.GetMousePosition()
         if mode == "date":
             title = "Select Date"
@@ -944,7 +943,7 @@ class ParameterSection:
             title = "Select Time"
         elif mode == "datetime":
             title = "Select Date & Time"
-        dlg = wx.Dialog(self.panel, title=title)
+        dlg = wx.Dialog(self.panel, title=title, name="DatePicker")
         dlg.Move(mouse_pos)
         vbox = wx.BoxSizer(wx.VERTICAL)
 

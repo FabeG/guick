@@ -658,6 +658,144 @@ def test_datetime_option_default(tmp_path, mocker, args, expect):
     assert expect in (tmp_path / "logfile.log").read_text(encoding="utf-8")
 
 
+@pytest.mark.parametrize(
+    ("args", "expect"),
+    [
+        ("23-50-52", "23:50:52"),
+        # ("2015-09-29T09:11:22", "2015-09-29T09:11:22"),
+        # ("2015-09", "'2015-09' does not match the formats '%Y-%m-%d', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S'."),
+    ],
+)
+def test_datetime_option_with_timepicker(tmp_path, mocker, args, expect):
+
+    mocker.patch("wx.App")
+    mocker.patch("wx.App.MainLoop")
+
+    dt = wx.DateTime.FromHMS(23, 50, 52)
+
+    RealCalendarCtrl = wx.adv.TimePickerCtrl
+    def calendar_factory(parent, *args, **kwargs):
+        ctrl = RealCalendarCtrl(parent, *args, **kwargs)
+        ctrl.Hide()
+        ctrl.GetValue = mocker.Mock(return_value=dt)
+        ctrl.SetValue = mocker.Mock()
+        return ctrl
+
+    mocker.patch(
+        "guick.gui.wx.adv.TimePickerCtrl",
+        side_effect=calendar_factory
+    )
+
+    # Save original
+    original_show_modal = wx.Dialog.ShowModal
+
+    # Replace ShowModal for all Dialog instances
+    def mock_show_modal(self):
+        self.Show()
+        return wx.ID_OK
+
+    wx.Dialog.ShowModal = mock_show_modal
+
+    @click.command(cls=guick.CommandGui)
+    @click.option("--start_hour", type=click.DateTime(formats=["%H-%M-%S"]))
+    def set_date(start_hour):
+        logger.info(start_hour.strftime("%H:%M:%S"))
+    logger.remove()
+    logger.add(
+        tmp_path / "logfile.log",
+        level="INFO",
+    )
+
+    original_init = guick.Guick
+    def init_gui(ctx, size=None):
+        guick = original_init(ctx)
+        # guick.cmd_panels["cli"].entries["start_date"].SetValue(args)
+        param = [param for param in guick.cmd_panels["set-date"].ctx.command.params if param.name == "start_hour"][0]
+        guick.cmd_panels["set-date"].sections["Optional Parameters"].date_time_picker(None, param)
+        dlg = wx.FindWindowByName("DatePicker")
+        ok_btn = dlg.FindWindowById(wx.ID_OK)
+        ok_btn.Command(wx.CommandEvent(wx.EVT_BUTTON.typeId))
+        guick.on_ok_button(None)
+        error = guick.cmd_panels["set-date"].text_errors["start_hour"].GetLabel()
+        if error:
+            logger.info(error)
+            guick.on_close_button(None)
+        return guick
+    mocker.patch("guick.gui.Guick", init_gui)
+    # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
+    with pytest.raises(SystemExit):
+        set_date()
+    assert expect in (tmp_path / "logfile.log").read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize(
+    ("args", "expect"),
+    [
+        ("2015-09-29", "2015-09-29T00:00:00"),
+        # ("2015-09-29T09:11:22", "2015-09-29T09:11:22"),
+        # ("2015-09", "'2015-09' does not match the formats '%Y-%m-%d', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S'."),
+    ],
+)
+def test_datetime_option_with_datepicker(tmp_path, mocker, args, expect):
+
+    mocker.patch("wx.App")
+    mocker.patch("wx.App.MainLoop")
+
+    dt = wx.DateTime.FromDMY(29, 8, 2015)
+
+    RealCalendarCtrl = wx.adv.CalendarCtrl
+    def calendar_factory(parent, *args, **kwargs):
+        ctrl = RealCalendarCtrl(parent, *args, **kwargs)
+        ctrl.Hide()
+        ctrl.GetDate = mocker.Mock(return_value=dt)
+        ctrl.SetDate = mocker.Mock()
+        return ctrl
+
+    mocker.patch(
+        "guick.gui.wx.adv.CalendarCtrl",
+        side_effect=calendar_factory
+    )
+
+    # Save original
+    original_show_modal = wx.Dialog.ShowModal
+
+    # Replace ShowModal for all Dialog instances
+    def mock_show_modal(self):
+        self.Show()
+        return wx.ID_OK
+
+    wx.Dialog.ShowModal = mock_show_modal
+
+    @click.command(cls=guick.CommandGui)
+    @click.option("--start_date", type=click.DateTime(formats=["%Y %m %d"]))
+    def set_date(start_date):
+        logger.info(start_date.strftime("%Y-%m-%dT%H:%M:%S"))
+    logger.remove()
+    logger.add(
+        tmp_path / "logfile.log",
+        level="INFO",
+    )
+
+    original_init = guick.Guick
+    def init_gui(ctx, size=None):
+        guick = original_init(ctx)
+        # guick.cmd_panels["cli"].entries["start_date"].SetValue(args)
+        param = [param for param in guick.cmd_panels["set-date"].ctx.command.params if param.name == "start_date"][0]
+        guick.cmd_panels["set-date"].sections["Optional Parameters"].date_time_picker(None, param)
+        dlg = wx.FindWindowByName("DatePicker")
+        ok_btn = dlg.FindWindowById(wx.ID_OK)
+        ok_btn.Command(wx.CommandEvent(wx.EVT_BUTTON.typeId))
+        guick.on_ok_button(None)
+        error = guick.cmd_panels["set-date"].text_errors["start_date"].GetLabel()
+        if error:
+            logger.info(error)
+            guick.on_close_button(None)
+        return guick
+    mocker.patch("guick.gui.Guick", init_gui)
+    # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
+    with pytest.raises(SystemExit):
+        set_date()
+    assert expect in (tmp_path / "logfile.log").read_text(encoding="utf-8")
 def test_datetime_option_custom(tmp_path, mocker):
     @click.command(cls=guick.CommandGui)
     @click.option("--start_date", type=click.DateTime(formats=["%A %B %d, %Y"]))
