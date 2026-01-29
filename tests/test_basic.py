@@ -733,7 +733,7 @@ def test_datetime_option_with_timepicker(tmp_path, mocker, args, date_format, ex
     ("args", "date_format", "expect_entry", "expected_date"),
     [
         ((28, 9, 2015), "%Y %m %d", "2015 09 28", "2015-09-28T00:00:00"),
-        ((28, 9, 2015), "%A %B %d, %Y", "Monday September 28, 2O15", "2015-09-28T00:00:00"),
+        ((28, 9, 2015), "%A %B %d, %Y", "Monday September 28, 2015", "2015-09-28T00:00:00"),
     ],
 )
 def test_datetime_option_with_datepicker(tmp_path, mocker, args, date_format, expect_entry, expected_date):
