@@ -716,7 +716,8 @@ class DateTimeEntry(NormalEntry):
     def build_entry(self) -> None:
         super().build_entry()
         # Set the 31 december 2025 13:00 as hint using the param format
-        self.entry.SetHint(datetime.datetime(2025, 12, 31, 13, 30, 50, 79233).strftime(self.param.type.formats[0]))
+        with contextlib.suppress(ValueError):
+            self.entry.SetHint(datetime.datetime(2025, 12, 31, 13, 30, 50, 79233).strftime(self.param.type.formats[0]))
 
     def build_button(self) -> None:
         self.button = wx.Button(self.parent, -1, "Select")
