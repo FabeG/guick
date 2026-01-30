@@ -1190,7 +1190,6 @@ class Guick(wx.Frame):
             outer_sizer.Add(panel, 0, wx.EXPAND | wx.ALL, 1)
             outer_sizer.Add(button_panel, 0, wx.EXPAND)
 
-        # # Create the log
         self.log_panel = LogPanel(self)
         outer_sizer.Add(self.log_panel, 1, flag=wx.EXPAND | wx.ALL, border=2)
         sys.stdout = RedirectText(self.log_panel.log_ctrl)
@@ -1461,14 +1460,10 @@ class Guick(wx.Frame):
         for param in selected_command.params:
             # Save each parameter except hidden ones and password fields
             if not (hasattr(param, "hide_input") and param.hide_input):
-                with contextlib.suppress(KeyError):
+                with contextlib.suppress(KeyError, tomlkit.exceptions.ConvertError):
                     self.config[sel_cmd_name][param.name] = opts[param.name]
         with open(self.history_file, mode="w", encoding="utf-8") as fp:
             tomlkit.dump(self.config, fp)
-
-        if args and not self.ctx.allow_extra_args and not self.ctx.resilient_parsing:
-            event.GetEventObject().Enable()
-            raise Exception("unexpected argument")
 
         # Invoke the command in a separate thread to avoid blocking the GUI
         self.ctx.args = args
