@@ -1081,8 +1081,9 @@ class CommandPanel(wx.Panel):
             command = ctx.command
 
         # Set the longest parameter name for alignment
-        longest_param_name = max([param.name for param in command.params], key=len)
-        NormalEntry.init_class(longest_param_name)
+        with contextlib.suppress(ValueError):
+            longest_param_name = max([param.name for param in command.params], key=len)
+            NormalEntry.init_class(longest_param_name)
 
         main_boxsizer = wx.BoxSizer(wx.VERTICAL)
         panels = defaultdict(list)
