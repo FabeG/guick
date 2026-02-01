@@ -87,10 +87,12 @@ class AnsiEscapeCodes(enum.IntEnum):
     StrikeThrough = 9
     TextColorStart = 30
     TextColorEnd = 37
+    Text256Color = 38
     TextBrightColorStart = 90
     TextBrightColorEnd = 97
     BackgroundColorStart = 40
     BackgroundColorEnd = 47
+    Background256Color = 48
     BackgroundBrightColorStart = 100
     BackgroundBrightColorEnd = 107
 
@@ -104,6 +106,14 @@ ANSI_COLORS = {
     5: TermColors["MAGENTA"],
     6: TermColors["CYAN"],
     7: TermColors["WHITE"],
+    8: TermColors["BRIGHT_BLACK"],
+    9: TermColors["BRIGHT_RED"],
+    10: TermColors["BRIGHT_GREEN"],
+    11: TermColors["BRIGHT_YELLOW"],
+    12: TermColors["BRIGHT_BLUE"],
+    13: TermColors["BRIGHT_MAGENTA"],
+    14: TermColors["BRIGHT_CYAN"],
+    15: TermColors["BRIGHT_WHITE"],
 }
 
 
@@ -206,6 +216,42 @@ class ANSITextCtrl(wx.TextCtrl):
                         param - AnsiEscapeCodes.TextBrightColorStart
                     ]
                     bold_fg = True
+                # 256 colors or RGB
+                elif param in {AnsiEscapeCodes.Text256Color, AnsiEscapeCodes.Background256Color}:
+                    second_param = next(params, None)
+                    # 256 colors
+                    if second_param == 5:
+                        color_code = next(params, None)
+                        # Standard colors
+                        if color_code < 16:
+                            color = ANSI_COLORS[color_code]
+                        # 6 x 6 x 6 color cube
+                        elif 16 <= color_code <= 231:
+                            color_code -= 16
+                            r = color_code // 36
+                            g = (color_code % 36) // 6
+                            b = color_code % 6
+
+                            def level(n):
+                                return 0 if n == 0 else 55 + n * 40
+
+                            color = (level(r), level(g), level(b))
+
+                        else:
+                            # Grayscale ramp
+                            gray = 8 + (color_code - 232) * 10
+                            color = (gray, gray, gray)
+                    # rgb values
+                    elif second_param == 2:
+                        red = next(params, None)
+                        green = next(params, None)
+                        blue = next(params, None)
+                        color = (red, green, blue)
+                    if param == AnsiEscapeCodes.Text256Color:
+                        current_fg = color
+                    else:
+                        current_bg = color
+
 
             last_end = match.end()
 
@@ -240,16 +286,28 @@ class ANSITextCtrl(wx.TextCtrl):
                 # Create text attribute with the font
                 if bold_fg:
                     font = font.Bold()
-                    color_fg = TermColors["BRIGHT_" + fg.name]
+                    if isinstance(fg, TermColors):
+                        color_fg = TermColors["BRIGHT_" + fg.name].value if "BRIGHT" not in fg.name else TermColors[fg.name].value
+                    else:
+                        color_fg = fg
                 else:
-                    color_fg = TermColors[fg.name]
+                    if isinstance(fg, TermColors):
+                        color_fg = TermColors[fg.name].value
+                    else:
+                        color_fg = fg
                 if bold_bg:
-                    color_bg = TermColors["BRIGHT_" + bg.name]
+                    if isinstance(fg, TermColors):
+                        color_bg = TermColors["BRIGHT_" + bg.name].value if "BRIGHT" not in bg.name else TermColors[bg.name].value
+                    else:
+                        color_bg = bg
                 else:
-                    color_bg = TermColors[bg.name]
+                    if isinstance(bg, TermColors):
+                        color_bg = TermColors[bg.name].value
+                    else:
+                        color_bg = bg
 
                 style = wx.TextAttr(
-                    wx.Colour(*color_fg.value), wx.Colour(*color_bg.value), font
+                    wx.Colour(*color_fg), wx.Colour(*color_bg), font
                 )
                 self.SetDefaultStyle(style)
                 # Regex to extract the progress bar value from the tqdm output
