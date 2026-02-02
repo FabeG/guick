@@ -359,6 +359,148 @@ def blend(c1, c2, factor):
     )
 
 
+class SearchPanel(wx.Panel):
+    def __init__(self, parent, target_text_ctrl):
+        """
+        A reusable panel that searches inside the provided target_text_ctrl.
+        """
+        super().__init__(parent)
+        self.target_ctrl = target_text_ctrl
+        self.current_search_pos = 0
+        self.last_match_start = -1
+        self.last_match_end = -1
+        self.saved_bg_color = wx.NullColour
+        self.saved_fg_color = wx.NullColour
+
+        # Search Control
+        self.search_ctrl = wx.SearchCtrl(self, style=wx.TE_PROCESS_ENTER)
+        self.search_ctrl.ShowCancelButton(True)
+        self.search_ctrl.SetDescriptiveText("Type and press Enter...")
+
+        # Next Button
+        self.btn_next = wx.Button(self, label="Next", size=(60, -1))
+
+        self.sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.sizer.Add(self.search_ctrl, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        self.sizer.Add(self.btn_next, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        self.SetSizer(self.sizer)
+
+        # Define some bindings (Close / Enter or Next)
+        self.search_ctrl.Bind(wx.EVT_SEARCHCTRL_CANCEL_BTN, self.on_close)
+        self.search_ctrl.Bind(wx.EVT_TEXT_ENTER, self.on_find_next)
+        self.search_ctrl.Bind(wx.EVT_SEARCHCTRL_SEARCH_BTN, self.on_find_next)
+        self.btn_next.Bind(wx.EVT_BUTTON, self.on_find_next)
+
+        # Start Hidden
+        self.Hide()
+
+    def show_search(self):
+        """Public method to trigger the search bar to appear."""
+        if not self.IsShown():
+            self.Show()
+            # Force parent to re-layout so this panel doesn't overlap/float weirdly
+            self.GetParent().Layout()
+
+        self.search_ctrl.SetFocus()
+        self.search_ctrl.SelectAll()
+
+    def on_close(self, event=None):
+        """Hide the search bar and return focus to text."""
+        self.Hide()
+        self.GetParent().Layout()
+        self.target_ctrl.SetFocus()
+
+    def clear_highlight(self):
+        """Clear previous highlight, keeping the original style."""
+        if self.last_match_start != -1:
+            # Restore background previous style
+            restore_bg = self.saved_bg_color
+            if not restore_bg.IsOk():
+                restore_bg = self.target_ctrl.GetBackgroundColour()
+            # Restore foreground previous style
+            restore_fg = self.saved_fg_color
+            if not restore_fg.IsOk():
+                restore_fg = self.target_ctrl.GetForegroundColour()
+            # Restore the previous style for the previous match
+            default_style = wx.TextAttr(restore_fg, restore_bg)
+            self.target_ctrl.SetStyle(self.last_match_start, self.last_match_end, default_style)
+            self.target_ctrl.Refresh()
+            self.last_match_start = -1
+            self.last_match_end = -1
+
+    def python_to_wx_index(self, full_text, python_index):
+        """
+        Converts a Python string index (0-based code points) to a
+        wxPython/Windows control index (UTF-16 code units).
+        """
+        # Take the text UP TO the point we are interested in
+        substring = full_text[:python_index]
+
+        # Encode as UTF-16LE (Windows native).
+        # Divide by 2 because UTF-16 is 2 bytes per character.
+        return len(substring.encode('utf-16le')) // 2
+
+    def on_find_next(self, event):
+        """Search logic."""
+        query = self.search_ctrl.GetValue()
+        if not query:
+            return
+
+        self.clear_highlight()
+
+        last_pos = self.target_ctrl.GetLastPosition()
+        content = self.target_ctrl.GetRange(0, last_pos)
+
+        # Case-insensitive search
+        idx = content.lower().find(query.lower(), self.current_search_pos)
+
+        # Wrap around
+        if idx == -1:
+            idx = content.lower().find(query.lower(), 0)
+            if idx == -1:
+                return
+
+        # Calculate Python Start/End
+        py_start = idx
+        py_end = idx + len(query)
+
+        # Convert to wx/Windows Indices
+        # We calculate the UTF-16 position for the start and the end.
+        wx_start = self.python_to_wx_index(content, py_start)
+
+        # Note: We calculate end based on the substring length in UTF-16
+        # This handles cases where the SEARCH QUERY ITSELF contains an emoji.
+        match_text = content[py_start:py_end]
+        match_len_utf16 = len(match_text.encode('utf-16le')) // 2
+        wx_end = wx_start + match_len_utf16
+        existing_attr = wx.TextAttr()
+        self.target_ctrl.GetStyle(wx_start, existing_attr)
+
+        # Save the background and forexground colors
+        # If the text has no specific bg set, this might be Null, which we handle in clear_highlight.
+        self.saved_bg_color = existing_attr.GetBackgroundColour()
+        self.saved_fg_color = existing_attr.GetTextColour()
+        if not self.saved_bg_color.IsOk():
+            self.saved_bg_color = self.target_ctrl.GetBackgroundColour()
+        if not self.saved_fg_color.IsOk():
+            self.saved_fg_color = self.target_ctrl.GetForegroundColour()
+
+        # Highlight found text
+        highlight_style = wx.TextAttr(wx.BLACK, wx.Colour(255, 255, 0))
+        self.target_ctrl.SetStyle(wx_start, wx_end, highlight_style)
+        self.target_ctrl.ShowPosition(wx_start)
+
+        # Store State
+        self.last_match_start = wx_start
+        self.last_match_end = wx_end
+
+        # Keep searching from the python index
+        self.current_search_pos = py_end
+
+        # Keep focus on search bar
+        self.search_ctrl.SetFocus()
+
+
 class LogPanel(wx.Panel):
     """A panel containing a shared log in a StaticBox."""
 
@@ -401,9 +543,11 @@ class LogPanel(wx.Panel):
             )
         )
         self.log_ctrl.SetBackgroundColour(wx.Colour(*TermColors.BLACK.value))
+        self.search_panel = SearchPanel(self, target_text_ctrl=self.log_ctrl)
 
         box_sizer.Add(self.log_ctrl, 1, wx.EXPAND | wx.ALL, 2)
         box_sizer.Add(self.gauge_sizer, 0, wx.EXPAND | wx.ALL, 2)
+        box_sizer.Add(self.search_panel, 0, wx.EXPAND | wx.ALL, 0)
         self.gauge_sizer.Show(self.gauge_text, False)
         self.gauge_sizer.Show(self.gauge, False)
         main_sizer = wx.BoxSizer(wx.VERTICAL)
@@ -1248,8 +1392,18 @@ class Guick(wx.Frame):
             outer_sizer.Add(panel, 0, wx.EXPAND | wx.ALL, 1)
             outer_sizer.Add(button_panel, 0, wx.EXPAND)
 
+        # # Create the log
         self.log_panel = LogPanel(self)
-        outer_sizer.Add(self.log_panel, 1, flag=wx.EXPAND | wx.ALL, border=2)
+
+        # Define key bindings for the SearchCtrl
+        # Ctrl-F to open the SearchCtrl
+        accel_tbl = wx.AcceleratorTable([(wx.ACCEL_CTRL, ord('F'), 101)])
+        self.SetAcceleratorTable(accel_tbl)
+        self.Bind(wx.EVT_MENU, lambda evt: self.log_panel.search_panel.show_search(), id=101)
+        # ESC Key to close the SearchCtrl
+        self.Bind(wx.EVT_CHAR_HOOK, self.on_global_char_hook)
+
+        outer_sizer.Add(self.log_panel, 1, flag=wx.EXPAND)
         sys.stdout = RedirectText(self.log_panel.log_ctrl)
         self.SetSizerAndFit(outer_sizer)
         # self.Fit()
@@ -1388,6 +1542,16 @@ class Guick(wx.Frame):
         # Destroys the main frame which quits the wxPython application
         self.Destroy()
         sys.exit()
+
+    def on_global_char_hook(self, event):
+        """Handle ESC key globally to close search."""
+        if event.GetKeyCode() == wx.WXK_ESCAPE:
+            if self.log_panel.search_panel.IsShown():
+                self.log_panel.search_panel.on_close()
+            else:
+                event.Skip()
+        else:
+            event.Skip()
 
     def on_help(self, event):
         head = self.ctx.command.name
