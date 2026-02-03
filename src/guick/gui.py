@@ -165,7 +165,7 @@ class ANSITextCtrl(wx.TextCtrl):
 
             # Extract and interpret ANSI code parameters
             params_str = match.group(1)
-            params = [int(p) for p in params_str.split(";") if p]
+            params = iter([int(p) for p in params_str.split(";") if p])
             for param in params:
                 # Process ANSI parameters
                 if param == AnsiEscapeCodes.ResetFormat:
