@@ -11,6 +11,7 @@ import os
 import re
 import sys
 import time
+from wx import aui
 import webbrowser
 from collections import defaultdict
 from pathlib import Path
@@ -506,11 +507,9 @@ class LogPanel(wx.Panel):
 
     def __init__(self, parent: Guick):
         super().__init__(parent)
+        self.SetBackgroundColour(wx.SystemSettings.GetColour(wx.SYS_COLOUR_WINDOW))
 
-        sb = wx.StaticBox(self, label="Log")
-        font = wx.Font(wx.FontInfo(10).Bold())
-        sb.SetFont(font)
-        box_sizer = wx.StaticBoxSizer(sb, wx.VERTICAL)
+        box_sizer = wx.BoxSizer(wx.VERTICAL)
 
         # Create the progessbar in case of tqdm
         self.gauge = wx.Gauge(self, -1, 100, size=(-1, 5))
@@ -531,8 +530,7 @@ class LogPanel(wx.Panel):
         self.gauge_sizer.Add(self.gauge, 1, wx.EXPAND | wx.ALL, 2)
         self.gauge_sizer.Add(self.gauge_text, 1, wx.EXPAND | wx.ALL, 2)
         # Create the log
-        self.log_ctrl = ANSITextCtrl(sb, self)
-        self.log_ctrl.SetMinSize((100, 200))
+        self.log_ctrl = ANSITextCtrl(self)
         self.log_ctrl.SetFont(
             wx.Font(
                 10,
@@ -553,7 +551,7 @@ class LogPanel(wx.Panel):
         main_sizer = wx.BoxSizer(wx.VERTICAL)
         main_sizer.Add(box_sizer, 1, wx.EXPAND | wx.ALL, 5)
 
-        self.SetSizer(main_sizer)
+        self.SetSizerAndFit(main_sizer)
         # box_sizer.SetSizeHints(self)
         self.Layout()
 
@@ -727,7 +725,6 @@ class NavButton(wx.Panel):
         sizer.Add(self.static_text, 1, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 10)
 
         self.SetSizer(sizer)
-        self.SetMinSize((-1, 50))
 
         # Bind events for hover and click
         self.Bind(wx.EVT_ENTER_WINDOW, self.on_hover)
@@ -782,7 +779,7 @@ class NormalEntry:
         self.text_error = None
         self.default_text = kwargs.get("default_text")
         self.hint = kwargs.get("hint")
-        self.min_size = (400, -1)
+        self.min_size = (200, -1)
         self.build_label()
         self.build_entry()
         self.build_button()
@@ -816,12 +813,10 @@ class NormalEntry:
     def build_entry(self) -> None:
         # Password
         if hasattr(self.param, "hide_input") and self.param.hide_input:
-            self.entry = wx.TextCtrl(
-                self.parent, -1, size=(500, -1), style=wx.TE_PASSWORD
-            )
+            self.entry = wx.TextCtrl(self.parent, -1, style=wx.TE_PASSWORD)
         # Normal case
         else:
-            self.entry = wx.TextCtrl(self.parent, -1, size=(500, -1))
+            self.entry = wx.TextCtrl(self.parent, -1)
             if self.hint:
                 self.entry.SetHint(self.hint)
         self.entry.SetMinSize(self.min_size)
@@ -832,7 +827,7 @@ class NormalEntry:
         pass
 
     def build_error(self) -> None:
-        self.text_error = wx.StaticText(self.parent, -1, "", size=(500, -1))
+        self.text_error = wx.StaticText(self.parent, -1, "")
         font = wx.Font(wx.FontInfo(8))
         self.text_error.SetMinSize(self.min_size)
         self.text_error.SetFont(font)
@@ -845,7 +840,7 @@ class ChoiceEntry(NormalEntry):
             choice.name if isinstance(choice, enum.Enum) else str(choice)
             for choice in self.param.type.choices
         ]
-        self.entry = wx.ComboBox(self.parent, -1, size=(500, -1), choices=choices)
+        self.entry = wx.ComboBox(self.parent, -1, choices=choices)
         self.entry.SetMinSize(self.min_size)
         if self.default_text:
             self.entry.SetValue(self.default_text)
@@ -927,7 +922,15 @@ class DateTimeEntry(NormalEntry):
 
 
 class ParameterSection:
-    def __init__(self, config: TOMLDocument, command_name: str, panel: CommandPanel, label: str, params: List[Union[Argument, Option]], main_boxsizer: wx.BoxSizer) -> None:
+    def __init__(
+        self,
+        config: TOMLDocument,
+        command_name: str,
+        panel: CommandPanel,
+        label: str,
+        params: List[Union[Argument, Option]],
+        main_boxsizer: wx.BoxSizer,
+    ) -> None:
         self.params = params
         self.controls = {}  # param_name -> wx control
         self.boxsizer = None
@@ -954,7 +957,7 @@ class ParameterSection:
 
         # GridBagSizer for parameter controls
         self.gbs = wx.GridBagSizer(vgap=1, hgap=5)
-        self.boxsizer.Add(self.gbs, flag=wx.EXPAND | wx.ALL, border=5)
+        self.boxsizer.Add(self.gbs, 1, flag=wx.EXPAND | wx.ALL, border=5)
 
         # Build UI for each parameter
         self._populate()
@@ -1262,8 +1265,10 @@ class ParameterSection:
             self.entry[param.name].SetValue(path)
 
 
-class CommandPanel(wx.Panel):
-    def __init__(self, parent: Guick, ctx: Context, name: str, config: TOMLDocument) -> None:
+class CommandPanel(scrolled.ScrolledPanel):
+    def __init__(
+        self, parent: Guick, ctx: Context, name: str, config: TOMLDocument
+    ) -> None:
         super().__init__(parent)
         self.SetBackgroundColour(wx.SystemSettings.GetColour(wx.SYS_COLOUR_WINDOW))
         self.entries = {}
@@ -1273,6 +1278,7 @@ class CommandPanel(wx.Panel):
         self.command_name = name
         self.config = config
         self.sections = {}
+        self.SetupScrolling(scroll_x=False, scroll_y=True)
 
         # Get the command
         try:
@@ -1291,10 +1297,14 @@ class CommandPanel(wx.Panel):
         panels = defaultdict(list)
         user_defined_panels = []
         for param in command.params:
-            if (not param.is_eager) and (
-                (hasattr(param, "hidden") and not param.hidden)
-                or (not hasattr(param, "hidden"))
-            ) and param.name not in {"install_completion", "show_completion"}:
+            if (
+                (not param.is_eager)
+                and (
+                    (hasattr(param, "hidden") and not param.hidden)
+                    or (not hasattr(param, "hidden"))
+                )
+                and param.name not in {"install_completion", "show_completion"}
+            ):
                 if hasattr(param, "rich_help_panel") and (
                     panel_name := param.rich_help_panel
                 ):
@@ -1320,8 +1330,12 @@ class CommandPanel(wx.Panel):
                 self.text_errors.update(self.sections[panel].text_error)
                 self.static_texts.update(self.sections[panel].static_text)
 
-        self.SetSizerAndFit(main_boxsizer)
+        self.SetSizer(main_boxsizer)
+        self.Layout()
+        self.best_size = main_boxsizer.GetMinSize()
 
+    def on_exit(self, event):
+        self.Close()
 
 
 class Guick(wx.Frame):
@@ -1348,67 +1362,150 @@ class Guick(wx.Frame):
         except FileNotFoundError:
             pass
 
+        self.Bind(wx.EVT_CLOSE, self.on_exit)
+
+        # Define key bindings for the SearchCtrl
+        # Ctrl-F to open the SearchCtrl
+        accel_tbl = wx.AcceleratorTable([(wx.ACCEL_CTRL, ord("F"), 101)])
+        self.SetAcceleratorTable(accel_tbl)
+        self.Bind(
+            wx.EVT_MENU, lambda evt: self.log_panel.search_panel.show_search(), id=101
+        )
+        # ESC Key to close the SearchCtrl
+        self.Bind(wx.EVT_CHAR_HOOK, self.on_global_char_hook)
+
+        self._mgr = aui.AuiManager()
+        self._mgr.SetManagedWindow(self)
+
         # If it is a group, create a right sidebar showing the commands
         if isinstance(ctx.command, click.Group):
-            # Main sizer
-            main_sizer = wx.BoxSizer(wx.HORIZONTAL)
-
-            nav_panel = self.create_left_sidebar()
-
             # Create the panels for each command
-            self.content_panel = self.create_parameters_panels()
-
-            # Create the OK/Cancel buttons
-            button_panel = self.create_ok_cancel_buttons()
-
-            # Add panels to main sizer
-            main_sizer.Add(nav_panel, 0, wx.EXPAND)
-            main_sizer.Add(self.content_panel, 1, wx.EXPAND)
-
-            # Add everything to vertical sizer
-            outer_sizer = wx.BoxSizer(wx.VERTICAL)
-            outer_sizer.Add(main_sizer, 1, wx.EXPAND)
-            outer_sizer.Add(button_panel, 0, wx.EXPAND)
-
-            # Show first panel by default
+            self.create_parameters_panels()
+            self._mgr.AddPane(
+                self.nav_panel,
+                aui.AuiPaneInfo()
+                .Name("NavPanel")
+                .Left()
+                .MinSize((self.nav_size.width, -1))
+                # .MinSize((250, -1))
+                .Floatable(False)
+                .Movable(False)
+                .PaneBorder(False)
+                .CaptionVisible(False)
+                .Layer(1),
+            )
+            panel_width = -1
+            panel_height = self.nav_size.height
+            for panel_name in self.ctx.command.commands.keys():
+                self._mgr.AddPane(
+                    self.cmd_panels[panel_name],
+                    aui.AuiPaneInfo()
+                    .Name(panel_name)
+                    .CenterPane()
+                    .PaneBorder(False)
+                    .Hide(),
+                )
+                if self.cmd_panels[panel_name].best_size.width > panel_width:
+                    panel_width = self.cmd_panels[panel_name].best_size.width
+                if self.cmd_panels[panel_name].best_size.height > panel_height:
+                    panel_height = self.cmd_panels[panel_name].best_size.height
             self.show_panel(list(self.ctx.command.commands.keys())[0])
 
         # Otherwise, create a single panel
         else:
-            outer_sizer = wx.BoxSizer(wx.VERTICAL)
-            self.panel = wx.Panel(
-                self,
-                -1,
-                style=wx.DEFAULT_FRAME_STYLE
-                | wx.CLIP_CHILDREN
-                | wx.FULL_REPAINT_ON_RESIZE,
-            )
-            # Create the OK/Cancel buttons
-            button_panel = self.create_ok_cancel_buttons()
-            parent = self
-            command = ctx.command
-            panel = CommandPanel(parent, ctx, "", self.config)
+            self.nav_size = 0
+            panel = CommandPanel(self, ctx, "", self.config)
             self.cmd_panels[ctx.command.name] = panel
-            outer_sizer.Add(panel, 0, wx.EXPAND | wx.ALL, 1)
-            outer_sizer.Add(button_panel, 0, wx.EXPAND)
+
+            self._mgr.AddPane(
+                panel,
+                aui.AuiPaneInfo().Name("Command").CenterPane().PaneBorder(False),
+            )
+            panel_width = panel.best_size.width
+            panel_height = panel.best_size.height
+
+        # Create the OK/Cancel buttons
+        button_panel, button_height = self.create_ok_cancel_buttons()
+
+        self._mgr.AddPane(
+            button_panel,
+            aui.AuiPaneInfo()
+            .MaximizeButton(False)
+            .Resizable(False)
+            .Bottom()
+            .CloseButton(False)
+            .Floatable(False)
+            .Movable(False)
+            .PaneBorder(False)
+            .CaptionVisible(False)
+            .MinSize(wx.Size(-1, button_height))
+            .PaneBorder(False)
+            .Layer(0),
+        )
 
         # # Create the log
+        log_panel_height = 200
         self.log_panel = LogPanel(self)
+        self._mgr.AddPane(
+            self.log_panel,
+            aui.AuiPaneInfo()
+            .Name("log")
+            .Caption("Log")
+            .Bottom()
+            .CloseButton(False)
+            .MaximizeButton(True)
+            .MinimizeButton(True)
+            .Resizable(True)
+            .MinSize(wx.Size(-1, log_panel_height))
+            .PaneBorder(False)
+            .Layer(1),
+        )
 
-        # Define key bindings for the SearchCtrl
-        # Ctrl-F to open the SearchCtrl
-        accel_tbl = wx.AcceleratorTable([(wx.ACCEL_CTRL, ord('F'), 101)])
-        self.SetAcceleratorTable(accel_tbl)
-        self.Bind(wx.EVT_MENU, lambda evt: self.log_panel.search_panel.show_search(), id=101)
-        # ESC Key to close the SearchCtrl
-        self.Bind(wx.EVT_CHAR_HOOK, self.on_global_char_hook)
+        # Customize the caption for Log panel
+        art = self._mgr.GetArtProvider()
+        art.SetColour(
+            aui.AUI_DOCKART_INACTIVE_CAPTION_COLOUR,
+            wx.SystemSettings.GetColour(wx.SYS_COLOUR_BTNFACE),
+        )
+        art.SetColour(
+            aui.AUI_DOCKART_INACTIVE_CAPTION_GRADIENT_COLOUR,
+            wx.SystemSettings.GetColour(wx.SYS_COLOUR_BTNFACE),
+        )
+        art.SetColour(aui.AUI_DOCKART_INACTIVE_CAPTION_TEXT_COLOUR, wx.BLACK)
+        # Font caption in bold
+        font = art.GetFont(aui.AUI_DOCKART_CAPTION_FONT)
+        font.MakeBold()
+        font.SetPointSize(font.GetPointSize() + 2)
+        art.SetFont(aui.AUI_DOCKART_CAPTION_FONT, font)
 
-        outer_sizer.Add(self.log_panel, 1, flag=wx.EXPAND)
+        # Transparent hint while docking
+        self._mgr.SetFlags(self._mgr.GetFlags() | aui.AUI_MGR_TRANSPARENT_HINT)
+
         sys.stdout = RedirectText(self.log_panel.log_ctrl)
-        self.SetSizerAndFit(outer_sizer)
-        # self.Fit()
-        # Set the minimum size to the fitted size
-        self.SetMinClientSize(self.GetClientSize())
+
+        # Height: form height + button height + log height + buffer for AUI sashes/captions
+        caption_size = art.GetMetric(aui.AUI_DOCKART_CAPTION_SIZE)
+        sash_size = art.GetMetric(aui.AUI_DOCKART_SASH_SIZE)
+
+        total_width = self.nav_size.width + panel_width + 30
+        total_height = (
+            panel_height + button_height + log_panel_height + caption_size + sash_size
+        )
+
+        screen_size = wx.GetClientDisplayRect()
+        current_frame_size = self.GetSize()
+        current_client_size = self.GetClientSize()
+
+        decoration_height = current_frame_size.height - current_client_size.height
+
+        max_client_height = screen_size.height - decoration_height
+
+        safe_height = min(total_height, max_client_height)
+
+        self.SetClientSize(wx.Size(total_width, safe_height))
+        self.CenterOnScreen()
+        self._mgr.Update()
+        wx.CallAfter(self._unlock_log_sash)
 
         # If a larger size is specified, apply it
         if size:
@@ -1425,12 +1522,22 @@ class Guick(wx.Frame):
             )
             self.SetClientSize((new_width, new_height))
 
-        self.CreateStatusBar()
-        self.SetStatusText("")
+        # self.CreateStatusBar()
+        # self.SetStatusText("")
 
         self.Centre()
 
-        self.Bind(wx.EVT_CLOSE, self.on_exit)
+        self.Show()
+
+    def _unlock_log_sash(self):
+        # Retrieve the form pane info
+        pane = self._mgr.GetPane("log")
+        if pane.IsOk():
+            # Lower the MinSize to allow the user to shrink it later
+            pane.MinSize(wx.Size(-1, -1))
+            # Update AUI. Since the frame is already large enough,
+            # it won't shrink the pane visually, but it WILL unlock the sash!
+            self._mgr.Update()
 
     def create_parameters_panels(self):
         # Right panel for content
@@ -1513,7 +1620,7 @@ class Guick(wx.Frame):
         for name, btn in self.nav_buttons:
             btn.set_selected(name == panel_name)
 
-        self.content_panel.Layout()
+        self._mgr.Update()
 
     def create_help_menu(self) -> None:
         # Create Help menu
