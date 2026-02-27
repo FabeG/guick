@@ -41,6 +41,7 @@ _typer_spec = importlib.util.find_spec("typer")
 if _typer_spec is not None:
     try:
         from typer.core import TyperCommand, TyperGroup
+
         TYPER_TYPES = (TyperCommand, TyperGroup)
     except ImportError:
         TYPER_TYPES = ()
@@ -118,9 +119,6 @@ ANSI_COLORS = {
 }
 
 
-
-
-
 class ANSITextCtrl(wx.TextCtrl):
     def __init__(self, parent, *args, **kwargs):
         super().__init__(
@@ -147,7 +145,7 @@ class ANSITextCtrl(wx.TextCtrl):
         bold_bg = False
         # Split the message by ANSI codes
         if isinstance(message, bytes):
-            message = message.decode('utf-8', errors='replace')
+            message = message.decode("utf-8", errors="replace")
         for match in ANSI_ESCAPE_PATTERN.finditer(message):
             # Add text before the ANSI code
             if match.start() > last_end:
@@ -218,7 +216,10 @@ class ANSITextCtrl(wx.TextCtrl):
                     ]
                     bold_fg = True
                 # 256 colors or RGB
-                elif param in {AnsiEscapeCodes.Text256Color, AnsiEscapeCodes.Background256Color}:
+                elif param in {
+                    AnsiEscapeCodes.Text256Color,
+                    AnsiEscapeCodes.Background256Color,
+                }:
                     second_param = next(params, None)
                     # 256 colors
                     if second_param == 5:
@@ -252,7 +253,6 @@ class ANSITextCtrl(wx.TextCtrl):
                         current_fg = color
                     else:
                         current_bg = color
-
 
             last_end = match.end()
 
@@ -288,7 +288,11 @@ class ANSITextCtrl(wx.TextCtrl):
                 if bold_fg:
                     font = font.Bold()
                     if isinstance(fg, TermColors):
-                        color_fg = TermColors["BRIGHT_" + fg.name].value if "BRIGHT" not in fg.name else TermColors[fg.name].value
+                        color_fg = (
+                            TermColors["BRIGHT_" + fg.name].value
+                            if "BRIGHT" not in fg.name
+                            else TermColors[fg.name].value
+                        )
                     else:
                         color_fg = fg
                 else:
@@ -298,7 +302,11 @@ class ANSITextCtrl(wx.TextCtrl):
                         color_fg = fg
                 if bold_bg:
                     if isinstance(fg, TermColors):
-                        color_bg = TermColors["BRIGHT_" + bg.name].value if "BRIGHT" not in bg.name else TermColors[bg.name].value
+                        color_bg = (
+                            TermColors["BRIGHT_" + bg.name].value
+                            if "BRIGHT" not in bg.name
+                            else TermColors[bg.name].value
+                        )
                     else:
                         color_bg = bg
                 else:
@@ -307,9 +315,7 @@ class ANSITextCtrl(wx.TextCtrl):
                     else:
                         color_bg = bg
 
-                style = wx.TextAttr(
-                    wx.Colour(*color_fg), wx.Colour(*color_bg), font
-                )
+                style = wx.TextAttr(wx.Colour(*color_fg), wx.Colour(*color_bg), font)
                 self.SetDefaultStyle(style)
                 # Regex to extract the progress bar value from the tqdm output
                 regex_tqdm = re.match(r"\r([\d\s]+)%\|.*\|(.*)", text)
@@ -336,7 +342,8 @@ class ANSITextCtrl(wx.TextCtrl):
                     self.gauge.SetValue(self.gauge_value)
                     self.gauge_text.SetValue(
                         regex_click_progressbar.group(1)
-                        + " " + regex_click_progressbar.group(4)
+                        + " "
+                        + regex_click_progressbar.group(4)
                     )
                 else:
                     self.AppendText(text)
@@ -424,7 +431,9 @@ class SearchPanel(wx.Panel):
                 restore_fg = self.target_ctrl.GetForegroundColour()
             # Restore the previous style for the previous match
             default_style = wx.TextAttr(restore_fg, restore_bg)
-            self.target_ctrl.SetStyle(self.last_match_start, self.last_match_end, default_style)
+            self.target_ctrl.SetStyle(
+                self.last_match_start, self.last_match_end, default_style
+            )
             self.target_ctrl.Refresh()
             self.last_match_start = -1
             self.last_match_end = -1
@@ -439,7 +448,7 @@ class SearchPanel(wx.Panel):
 
         # Encode as UTF-16LE (Windows native).
         # Divide by 2 because UTF-16 is 2 bytes per character.
-        return len(substring.encode('utf-16le')) // 2
+        return len(substring.encode("utf-16le")) // 2
 
     def on_find_next(self, event):
         """Search logic."""
@@ -472,7 +481,7 @@ class SearchPanel(wx.Panel):
         # Note: We calculate end based on the substring length in UTF-16
         # This handles cases where the SEARCH QUERY ITSELF contains an emoji.
         match_text = content[py_start:py_end]
-        match_len_utf16 = len(match_text.encode('utf-16le')) // 2
+        match_len_utf16 = len(match_text.encode("utf-16le")) // 2
         wx_end = wx_start + match_len_utf16
         existing_attr = wx.TextAttr()
         self.target_ctrl.GetStyle(wx_start, existing_attr)
@@ -568,8 +577,15 @@ class MyFileDropTarget(wx.FileDropTarget):
 
 
 class AboutDialog(wx.Dialog):
-    def __init__(self, parent, title, head, text_content, font_size=8, name="AboutDialog"):
-        super().__init__(parent, title=title, style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER, name=name)
+    def __init__(
+        self, parent, title, head, text_content, font_size=8, name="AboutDialog"
+    ):
+        super().__init__(
+            parent,
+            title=title,
+            style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER,
+            name=name,
+        )
 
         sizer = wx.BoxSizer(wx.VERTICAL)
 
@@ -605,7 +621,7 @@ class AboutDialog(wx.Dialog):
         # Manual Sizing
         # TextCtrl generally doesn't "Fit" as tightly as StaticText,
         # so we calculate the exact pixels needed.
-        lines = text_content.split('\n')
+        lines = text_content.split("\n")
         longest_line = max(lines, key=len) if lines else ""
 
         # Get width/height of the text using the current font
@@ -695,10 +711,14 @@ class NavButton(wx.Panel):
         self.normal_color = wx.SystemSettings.GetColour(wx.SYS_COLOUR_BTNFACE)
         self.hover_color = wx.SystemSettings.GetColour(wx.SYS_COLOUR_BTNHIGHLIGHT)
         self.selected_color = wx.SystemSettings.GetColour(wx.SYS_COLOUR_HIGHLIGHT)
-        self.selected_text_color = wx.SystemSettings.GetColour(wx.SYS_COLOUR_HIGHLIGHTTEXT)
+        self.selected_text_color = wx.SystemSettings.GetColour(
+            wx.SYS_COLOUR_HIGHLIGHTTEXT
+        )
         self.normal_text_color = wx.SystemSettings.GetColour(wx.SYS_COLOUR_BTNTEXT)
         self.deprecated_colour = blend(self.normal_text_color, self.normal_color, 0.5)
-        self.selected_deprecated_colour = blend(self.selected_text_color, self.selected_color, 0.5)
+        self.selected_deprecated_colour = blend(
+            self.selected_text_color, self.selected_color, 0.5
+        )
 
         self.SetForegroundColour(self.normal_text_color)
         self.SetBackgroundColour(self.normal_color)
@@ -751,13 +771,19 @@ class NavButton(wx.Panel):
     def set_selected(self, selected):
         self.selected = selected
         if selected:
-            selected_color = self.selected_deprecated_colour if self.deprecated else self.selected_text_color
+            selected_color = (
+                self.selected_deprecated_colour
+                if self.deprecated
+                else self.selected_text_color
+            )
             self.SetBackgroundColour(self.selected_color)
             for child in self.GetChildren():
                 if isinstance(child, wx.StaticText):
                     child.SetForegroundColour(selected_color)
         else:
-            normal_color = self.deprecated_colour if self.deprecated else self.normal_text_color
+            normal_color = (
+                self.deprecated_colour if self.deprecated else self.normal_text_color
+            )
             self.SetBackgroundColour(self.normal_color)
             for child in self.GetChildren():
                 if isinstance(child, wx.StaticText):
@@ -914,7 +940,11 @@ class DateTimeEntry(NormalEntry):
         super().build_entry()
         # Set the 31 december 2025 13:00 as hint using the param format
         with contextlib.suppress(ValueError):
-            self.entry.SetHint(datetime.datetime(2025, 12, 31, 13, 30, 50, 79233).strftime(self.param.type.formats[0]))
+            self.entry.SetHint(
+                datetime.datetime(2025, 12, 31, 13, 30, 50, 79233).strftime(
+                    self.param.type.formats[0]
+                )
+            )
 
     def build_button(self) -> None:
         self.button = wx.Button(self.parent, -1, "Select")
@@ -980,7 +1010,9 @@ class ParameterSection:
                     # If previous run, prefill this field with the one saved in
                     # history.toml
                     config_value = self.config[self.command_name][param.name]
-                    prefilled_value = str(config_value) if config_value not in {UNSET, None} else ""
+                    prefilled_value = (
+                        str(config_value) if config_value not in {UNSET, None} else ""
+                    )
                 except (TypeError, KeyError):
                     prefilled_value = None
 
@@ -998,7 +1030,9 @@ class ParameterSection:
                 else:
                     default_value = param.default
 
-                hint_value = str(default_value) if default_value not in {UNSET, None} else ""
+                hint_value = (
+                    str(default_value) if default_value not in {UNSET, None} else ""
+                )
                 # File
                 if isinstance(param.type, click.File) or (
                     isinstance(param.type, click.Path) and param.type.file_okay
@@ -1009,7 +1043,8 @@ class ParameterSection:
                         default_text=prefilled_value,
                         hint=hint_value,
                         callback=lambda evt, param=param: self.file_open(
-                            evt, param,
+                            evt,
+                            param,
                         ),
                     )
                     # self.button[param.name] = widgets.button
@@ -1030,13 +1065,19 @@ class ParameterSection:
                 # Choice
                 elif isinstance(param.type, click.Choice):
                     widgets = ChoiceEntry(
-                        parent=self.panel, param=param, default_text=prefilled_value, hint=hint_value
+                        parent=self.panel,
+                        param=param,
+                        default_text=prefilled_value,
+                        hint=hint_value,
                     )
 
                 # bool
                 elif isinstance(param.type, click.types.BoolParamType):
                     widgets = BoolEntry(
-                        parent=self.panel, param=param, default_text=prefilled_value, hint=hint_value
+                        parent=self.panel,
+                        param=param,
+                        default_text=prefilled_value,
+                        hint=hint_value,
                     )
 
                 # IntRange: Slider only if min and max defined
@@ -1064,12 +1105,16 @@ class ParameterSection:
                         default_text=prefilled_value,
                         hint=hint_value,
                         callback=lambda evt, param=param: self.date_time_picker(
-                            evt, param,
+                            evt,
+                            param,
                         ),
                     )
                 else:
                     widgets = NormalEntry(
-                        parent=self.panel, param=param, default_text=prefilled_value, hint=hint_value
+                        parent=self.panel,
+                        param=param,
+                        default_text=prefilled_value,
+                        hint=hint_value,
                     )
                 self.entry[param.name] = widgets.entry
                 self.text_error[param.name] = widgets.text_error
@@ -1126,14 +1171,18 @@ class ParameterSection:
         current_text_entry = self.entry[param.name].GetValue()
         try:
             # Parse the string to a datetime object
-            datetime_obj = datetime.datetime.strptime(current_text_entry, param.type.formats[0])
+            datetime_obj = datetime.datetime.strptime(
+                current_text_entry, param.type.formats[0]
+            )
 
         except ValueError as exc:
             if "unconverted data remains" in str(exc):
                 # If the string is too long, slice it to the length of a dummy formatted string
                 # This keeps "12:50" and drops ":40"
                 dummy_len = len(datetime.datetime.now().strftime(param.type.formats[0]))
-                datetime_obj = datetime.datetime.strptime(current_text_entry[:dummy_len], param.type.formats[0])
+                datetime_obj = datetime.datetime.strptime(
+                    current_text_entry[:dummy_len], param.type.formats[0]
+                )
 
         hbox = wx.BoxSizer(wx.VERTICAL)
 
@@ -1151,7 +1200,9 @@ class ParameterSection:
             if datetime_obj:
                 # Set the time using wx.DateTime
                 wx_time = wx.DateTime()
-                wx_time.SetHMS(datetime_obj.hour, datetime_obj.minute, datetime_obj.second)
+                wx_time.SetHMS(
+                    datetime_obj.hour, datetime_obj.minute, datetime_obj.second
+                )
                 self.time_picker.SetValue(wx_time)
             hbox.Add(self.time_picker, flag=wx.ALL | wx.EXPAND, border=5)
 
@@ -1202,9 +1253,7 @@ class ParameterSection:
 
     def file_open(self, event, param):
         # Should we let the user select multiple files?
-        multiple = (hasattr(param, "multiple") and param.multiple) or (
-            param.nargs != 1
-        )
+        multiple = (hasattr(param, "multiple") and param.multiple) or (param.nargs != 1)
         # Read mode ?
         if (hasattr(param.type, "readable") and param.type.readable) or (
             hasattr(param.type, "mode") and "r" in param.type.mode
@@ -1222,17 +1271,11 @@ class ParameterSection:
         # dialog can filter the files
         wildcards = "All files|*.*"
         if hasattr(param, "help") and param.help:
-            wildcard_raw = re.search(
-                r"(\w+) file[s]? \(([a-zA-Z ,\.]*)\)", param.help
-            )
+            wildcard_raw = re.search(r"(\w+) file[s]? \(([a-zA-Z ,\.]*)\)", param.help)
             if wildcard_raw:
                 file_type, extensions_raw = wildcard_raw.groups()
-                extensions = re.findall(
-                    r"\.(\w+(?:\.\w+)?)", extensions_raw
-                )
-                extensions_text = ";".join(
-                    [f"*.{ext}" for ext in extensions]
-                )
+                extensions = re.findall(r"\.(\w+(?:\.\w+)?)", extensions_raw)
+                extensions_text = ";".join([f"*.{ext}" for ext in extensions])
                 wildcards = f"{file_type} files|{extensions_text}"
         path = self.entry[param.name].GetValue()
         message = "Choose a file"
@@ -1591,7 +1634,9 @@ class Guick(wx.Frame):
         self.nav_buttons = []
         self.cmd_panels = {}
         for name, command in self.ctx.command.commands.items():
-            btn = NavButton(nav_panel, name, deprecated=command.deprecated, help=command.help)
+            btn = NavButton(
+                nav_panel, name, deprecated=command.deprecated, help=command.help
+            )
             btn.Bind(
                 wx.EVT_BUTTON, lambda e, panel_name=name: self.show_panel(panel_name)
             )
@@ -1666,7 +1711,9 @@ class Guick(wx.Frame):
             from contextlib import redirect_stdout
 
             f = io.StringIO()
-            with mock.patch("os.get_terminal_size", return_value=os.terminal_size((100, 20))):
+            with mock.patch(
+                "os.get_terminal_size", return_value=os.terminal_size((100, 20))
+            ):
                 with redirect_stdout(f):
                     help_text = self.ctx.command.get_help(self.ctx)
 
@@ -1734,12 +1781,16 @@ class Guick(wx.Frame):
                         opts[key] = UNSET
             else:
                 param = [p for p in selected_command.params if p.name == key][0]
-                if param.nargs not in (None, 1) or (hasattr(param, "multiple") and param.multiple):
+                if param.nargs not in (None, 1) or (
+                    hasattr(param, "multiple") and param.multiple
+                ):
                     # Try to parse as JSON to handle lists
                     try:
                         opts[key] = json.loads(value)
                     except json.JSONDecodeError:
-                        errors[param.name] = "Unexpected error in the list, probably a syntax error?"
+                        errors[
+                            param.name
+                        ] = "Unexpected error in the list, probably a syntax error?"
                         opts[key] = ""
                 else:
                     opts[key] = entry.GetValue()
@@ -1821,12 +1872,12 @@ class GroupGui(CommonGui, click.Group):
     pass
 
 
-
 class CommandGui(CommonGui, click.Command):
     pass
 
 
 with contextlib.suppress(NameError):
+
     class TyperCommandGui(CommonGui, TyperCommand):
         pass
 
