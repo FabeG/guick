@@ -122,12 +122,12 @@ ANSI_COLORS = {
 
 
 class ANSITextCtrl(wx.TextCtrl):
-    def __init__(self, parent: LogPanel, panel, *args, **kwargs):
-        super().__init__(parent, style=wx.TE_MULTILINE | wx.TE_RICH2 | wx.TE_READONLY)
-        self.parent = panel
-        self.gauge = panel.gauge
-        self.gauge_sizer = panel.gauge_sizer
-        self.gauge_text = panel.gauge_text
+    def __init__(self, parent, *args, **kwargs):
+        super().__init__(
+            parent,
+            style=wx.TE_MULTILINE | wx.TE_RICH2 | wx.TE_READONLY,
+            name="LogPanel",
+        )
         self.gauge_value = 0
         self.gauge_is_visible = False
         # Default foreground and background colors
@@ -318,7 +318,7 @@ class ANSITextCtrl(wx.TextCtrl):
                     if not self.gauge_is_visible:
                         self.gauge_sizer.ShowItems(True)
                         self.gauge_is_visible = True
-                        self.parent.Layout()
+                        self.Layout()
                     self.gauge_value = int(regex_tqdm.group(1))
                     self.gauge.SetValue(self.gauge_value)
                     self.gauge_text.SetValue(regex_tqdm.group(2))
@@ -326,7 +326,7 @@ class ANSITextCtrl(wx.TextCtrl):
                     if not self.gauge_is_visible:
                         self.gauge_sizer.ShowItems(True)
                         self.gauge_is_visible = True
-                        self.parent.Layout()
+                        self.Layout()
                     completed = len(regex_click_progressbar.group(2))
                     total = completed + len(regex_click_progressbar.group(3))
                     if total > 0:
