@@ -414,6 +414,7 @@ class SearchPanel(wx.Panel):
 
     def on_close(self, event=None):
         """Hide the search bar and return focus to text."""
+        self.clear_highlight()
         self.Hide()
         self.GetParent().Layout()
         self.target_ctrl.SetFocus()
