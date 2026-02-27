@@ -1410,10 +1410,10 @@ class Guick(wx.Frame):
                 if self.cmd_panels[panel_name].best_size.height > panel_height:
                     panel_height = self.cmd_panels[panel_name].best_size.height
             self.show_panel(list(self.ctx.command.commands.keys())[0])
+            total_width = self.nav_size.width + panel_width + 30
 
         # Otherwise, create a single panel
         else:
-            self.nav_size = 0
             panel = CommandPanel(self, ctx, "", self.config)
             self.cmd_panels[ctx.command.name] = panel
 
@@ -1423,6 +1423,7 @@ class Guick(wx.Frame):
             )
             panel_width = panel.best_size.width
             panel_height = panel.best_size.height
+            total_width = panel_width + 30
 
         # Create the OK/Cancel buttons
         button_panel, button_height = self.create_ok_cancel_buttons()
@@ -1487,7 +1488,6 @@ class Guick(wx.Frame):
         caption_size = art.GetMetric(aui.AUI_DOCKART_CAPTION_SIZE)
         sash_size = art.GetMetric(aui.AUI_DOCKART_SASH_SIZE)
 
-        total_width = self.nav_size.width + panel_width + 30
         total_height = (
             panel_height + button_height + log_panel_height + caption_size + sash_size
         )
@@ -1541,51 +1541,46 @@ class Guick(wx.Frame):
 
     def create_parameters_panels(self):
         # Right panel for content
-        content_panel = wx.Panel(self)
-        content_panel.SetBackgroundColour(wx.SystemSettings.GetColour(wx.SYS_COLOUR_WINDOW))
-        content_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.nav_panel, self.nav_size = self.create_left_sidebar()
 
         for name in self.ctx.command.commands:
             command = self.ctx.command.commands.get(name)
-            panel = CommandPanel(content_panel, self.ctx, name, self.config)
-            panel.Hide()
+            panel = CommandPanel(self, self.ctx, name, self.config)
             self.cmd_panels[name] = panel
-            content_sizer.Add(panel, 1, wx.EXPAND)
 
-        content_panel.SetSizer(content_sizer)
-        return content_panel
+    def create_ok_cancel_buttons(self):
+        panel = wx.Panel(self)
+        panel.SetBackgroundColour(wx.SystemSettings.GetColour(wx.SYS_COLOUR_BTNFACE))
+        sizer = wx.BoxSizer(wx.HORIZONTAL)
 
-    def create_ok_cancel_buttons(self) -> wx.Panel:
-        # Button panel at the bottom
-        button_panel = wx.Panel(self)
-        button_panel.SetBackgroundColour(wx.SystemSettings.GetColour(wx.SYS_COLOUR_BTNFACE))
-        button_sizer = wx.BoxSizer(wx.HORIZONTAL)
-
-        button_sizer.AddStretchSpacer()
-
-        ok_btn = wx.Button(button_panel, wx.ID_OK, "OK")
-        cancel_btn = wx.Button(button_panel, wx.ID_CANCEL, "Cancel")
+        ok_btn = wx.Button(panel, wx.ID_OK, "OK")
+        cancel_btn = wx.Button(panel, wx.ID_CANCEL, "Cancel")
 
         ok_btn.Bind(wx.EVT_BUTTON, self.on_ok_button)
         cancel_btn.Bind(wx.EVT_BUTTON, self.on_close_button)
 
-        button_sizer.Add(ok_btn, 0, wx.ALL, 10)
-        button_sizer.Add(cancel_btn, 0, wx.TOP | wx.BOTTOM | wx.RIGHT, 10)
+        sizer.AddStretchSpacer()
+        sizer.Add(ok_btn, flag=wx.ALL, border=6)
+        sizer.Add(cancel_btn, flag=wx.ALL, border=6)
+        panel.SetSizer(sizer)
 
-        button_panel.SetSizer(button_sizer)
-        return button_panel
+        panel.Layout()
+        button_height = sizer.GetMinSize().height
+
+        return panel, button_height
 
     def create_left_sidebar(self):
-
         # Left sidebar for navigation
         nav_panel = wx.Panel(self)
-        nav_panel.SetBackgroundColour(wx.SystemSettings.GetColour(wx.SYS_COLOUR_BTNFACE))
-        nav_panel.SetMinSize((250, -1))
+        nav_panel.SetBackgroundColour(
+            wx.SystemSettings.GetColour(wx.SYS_COLOUR_BTNFACE)
+        )
 
         nav_sizer = wx.BoxSizer(wx.VERTICAL)
 
         # Add title to sidebar
         title = wx.StaticText(nav_panel, label="Commands")
+        title.SetMinSize((250, -1))
         font = title.GetFont()
         font.PointSize += 2
         font = font.Bold()
@@ -1604,17 +1599,20 @@ class Guick(wx.Frame):
             self.nav_buttons.append((name, btn))
 
         nav_panel.SetSizer(nav_sizer)
-        return nav_panel
+        nav_panel.Layout()
+        nav_size = nav_sizer.GetMinSize()
+
+        return nav_panel, nav_size
 
     def show_panel(self, panel_name):
         """Switch to the selected panel"""
         # Hide all panels
         for name, panel in self.cmd_panels.items():
-            panel.Hide()
+            self._mgr.GetPane(name).Hide()
 
         # Show selected panel
         if panel_name in self.cmd_panels:
-            self.cmd_panels[panel_name].Show()
+            self._mgr.GetPane(panel_name).Show()
 
         # Update button selection
         for name, btn in self.nav_buttons:
