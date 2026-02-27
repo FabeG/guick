@@ -1023,14 +1023,18 @@ class ParameterSection:
                 elif callable(param.default):
                     default_value = param.default()
                 # If it is an Enum - Choice parameter
-                elif isinstance(param.default, enum.Enum) and isinstance(
-                    param.type, click.Choice
+                elif (
+                    param.default != UNSET
+                    and isinstance(param.default, enum.Enum)
+                    and isinstance(param.type, click.Choice)
                 ):
                     default_value = param.default.value
                 # Otherwise, prefill with the default value if any
                 else:
                     default_value = param.default
 
+                if default_value in {UNSET, None}:
+                    default_value = ""
                 hint_value = (
                     str(default_value) if default_value not in {UNSET, None} else ""
                 )
