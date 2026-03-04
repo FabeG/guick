@@ -8,14 +8,14 @@ import io
 import json
 import math
 import os
+import queue
 import re
 import sys
+import threading
 import time
-from wx import aui
 import webbrowser
 from collections import defaultdict
 from pathlib import Path
-from threading import Thread
 from typing import (
     List,
     Optional,
@@ -26,7 +26,6 @@ import click
 import tomlkit
 import wx
 import wx.adv
-import wx.html
 import wx.lib.scrolledpanel as scrolled
 from click.core import (
     Argument,
@@ -34,6 +33,7 @@ from click.core import (
     Option,
 )
 from tomlkit.toml_document import TOMLDocument
+from wx import aui, stc
 
 # Check if typer is installed
 _typer_spec = importlib.util.find_spec("typer")
@@ -128,149 +128,31 @@ class ANSITextCtrl(wx.TextCtrl):
         )
         self.gauge_value = 0
         self.gauge_is_visible = False
+
+        # Visual indices (for clearing highlights)
+        self.last_match_start = -1
+        self.last_match_end = -1
+
+        # Python string indices (for finding next/prev correctly with emojis)
+        self.last_py_start = -1
+        self.last_py_end = -1
         # Default foreground and background colors
         self.default_fg = TermColors["WHITE"]
         self.default_bg = TermColors["BLACK"]
 
-    def append_ansi_text(self, message):
-        # Find all ANSI color code segments
-        segments = []
-        last_end = 0
-        current_fg = self.default_fg
-        current_bg = self.default_bg
-        underline = False
-        strikethrough = False
-        italic = False
-        bold_fg = False
-        bold_bg = False
-        # Split the message by ANSI codes
-        if isinstance(message, bytes):
-            message = message.decode("utf-8", errors="replace")
-        for match in ANSI_ESCAPE_PATTERN.finditer(message):
-            # Add text before the ANSI code
-            if match.start() > last_end:
-                segments.append(
-                    (
-                        message[last_end : match.start()],
-                        current_fg,
-                        current_bg,
-                        underline,
-                        strikethrough,
-                        italic,
-                        bold_fg,
-                        bold_bg,
-                    )
-                )
-
-            # Extract and interpret ANSI code parameters
-            params_str = match.group(1)
-            params = iter([int(p) for p in params_str.split(";") if p])
-            for param in params:
-                # Process ANSI parameters
-                if param == AnsiEscapeCodes.ResetFormat:
-                    current_fg = self.default_fg
-                    current_bg = self.default_bg
-                    underline = False
-                    italic = False
-                    bold_fg = False
-                    bold_bg = False
-                    strikethrough = False
-                elif param == AnsiEscapeCodes.UnderLinedText:
-                    underline = True
-                elif param == AnsiEscapeCodes.StrikeThrough:
-                    strikethrough = True
-                elif param == AnsiEscapeCodes.ItalicText:
-                    italic = True
-                elif param == AnsiEscapeCodes.BoldText:
-                    bold_fg = True
-                elif (
-                    AnsiEscapeCodes.BackgroundColorStart
-                    <= param
-                    <= AnsiEscapeCodes.BackgroundColorEnd
-                ):
-                    current_bg = ANSI_COLORS[
-                        param - AnsiEscapeCodes.BackgroundColorStart
-                    ]
-                elif (
-                    AnsiEscapeCodes.TextColorStart
-                    <= param
-                    <= AnsiEscapeCodes.TextColorEnd
-                ):
-                    current_fg = ANSI_COLORS[param - AnsiEscapeCodes.TextColorStart]
-                elif (
-                    AnsiEscapeCodes.BackgroundBrightColorStart
-                    <= param
-                    <= AnsiEscapeCodes.BackgroundBrightColorEnd
-                ):
-                    current_bg = ANSI_COLORS[
-                        param - AnsiEscapeCodes.BackgroundBrightColorStart
-                    ]
-                    bold_bg = True
-                elif (
-                    AnsiEscapeCodes.TextBrightColorStart
-                    <= param
-                    <= AnsiEscapeCodes.TextBrightColorEnd
-                ):
-                    current_fg = ANSI_COLORS[
-                        param - AnsiEscapeCodes.TextBrightColorStart
-                    ]
-                    bold_fg = True
-                # 256 colors or RGB
-                elif param in {
-                    AnsiEscapeCodes.Text256Color,
-                    AnsiEscapeCodes.Background256Color,
-                }:
-                    second_param = next(params, None)
-                    # 256 colors
-                    if second_param == 5:
-                        color_code = next(params, None)
-                        # Standard colors
-                        if color_code < 16:
-                            color = ANSI_COLORS[color_code]
-                        # 6 x 6 x 6 color cube
-                        elif 16 <= color_code <= 231:
-                            color_code -= 16
-                            r = color_code // 36
-                            g = (color_code % 36) // 6
-                            b = color_code % 6
-
-                            def level(n):
-                                return 0 if n == 0 else 55 + n * 40
-
-                            color = (level(r), level(g), level(b))
-
-                        else:
-                            # Grayscale ramp
-                            gray = 8 + (color_code - 232) * 10
-                            color = (gray, gray, gray)
-                    # rgb values
-                    elif second_param == 2:
-                        red = next(params, None)
-                        green = next(params, None)
-                        blue = next(params, None)
-                        color = (red, green, blue)
-                    if param == AnsiEscapeCodes.Text256Color:
-                        current_fg = color
-                    else:
-                        current_bg = color
-
-            last_end = match.end()
-
-        # Add remaining text
-        if last_end < len(message):
-            segments.append(
-                (
-                    message[last_end:],
-                    current_fg,
-                    current_bg,
-                    underline,
-                    strikethrough,
-                    italic,
-                    bold_fg,
-                    bold_bg,
-                )
+        font = get_best_monospace_font()
+        self.SetFont(
+            wx.Font(
+                10,
+                wx.FONTFAMILY_DEFAULT,
+                wx.FONTSTYLE_NORMAL,
+                wx.FONTWEIGHT_NORMAL,
+                faceName=font,
             )
+        )
+        self.SetBackgroundColour(wx.Colour(*self.default_bg.value))
 
+    def append_ansi_text(self, segments):
         # Apply text and styles
         for text, fg, bg, ul, st, it, bold_fg, bold_bg in segments:
             if text:
@@ -358,6 +240,317 @@ class ANSITextCtrl(wx.TextCtrl):
             )
         )
 
+    def python_to_wx_index(self, full_text, python_index):
+        """
+        Converts a Python string index (0-based code points) to a
+        wxPython/Windows control index (UTF-16 code units).
+        """
+        # Take the text UP TO the point we are interested in
+        substring = full_text[:python_index]
+
+        # Encode as UTF-16LE (Windows native).
+        # Divide by 2 because UTF-16 is 2 bytes per character.
+        return len(substring.encode("utf-16le")) // 2
+
+    def jump_to_result(self, query, forward=True):
+        """Search logic."""
+
+        self.clear_highlight()
+
+        last_pos = self.GetLastPosition()
+        content = self.GetRange(0, last_pos)
+
+        query_lower = query.lower()
+        content_lower = content.lower()
+
+        if forward:
+            # Start searching from the END of the last match
+            start_pos = self.last_py_end if self.last_py_end != -1 else 0
+
+            idx = content_lower.find(query_lower, start_pos)
+            if idx == -1:
+                # Wrap around to the beginning
+                idx = content_lower.find(query_lower, 0)
+        else:
+            # Start searching backwards from the START of the last match
+            end_pos = self.last_py_start if self.last_py_start != -1 else len(content)
+
+            # rfind(query, start, end)
+            idx = content_lower.rfind(query_lower, 0, end_pos)
+            if idx == -1:
+                # Wrap around to the very end
+                idx = content_lower.rfind(query_lower)
+
+        if idx == -1:
+            # Still not found (text doesn't exist)
+            return
+
+        # Calculate Python Start/End
+        py_start = idx
+        py_end = idx + len(query)
+
+        # Convert to wx/Windows Indices
+        # We calculate the UTF-16 position for the start and the end.
+        wx_start = self.python_to_wx_index(content, py_start)
+
+        # Note: We calculate end based on the substring length in UTF-16
+        # This handles cases where the SEARCH QUERY ITSELF contains an emoji.
+        match_text = content[py_start:py_end]
+        match_len_utf16 = len(match_text.encode("utf-16le")) // 2
+        wx_end = wx_start + match_len_utf16
+        existing_attr = wx.TextAttr()
+        self.GetStyle(wx_start, existing_attr)
+
+        # Save the background and forexground colors
+        # If the text has no specific bg set, this might be Null, which we handle in clear_highlight.
+        self.saved_bg_color = existing_attr.GetBackgroundColour()
+        self.saved_fg_color = existing_attr.GetTextColour()
+        if not self.saved_bg_color.IsOk():
+            self.saved_bg_color = self.GetBackgroundColour()
+        if not self.saved_fg_color.IsOk():
+            self.saved_fg_color = self.GetForegroundColour()
+
+        # Highlight found text
+        highlight_style = wx.TextAttr(wx.SystemSettings.GetColour(wx.SYS_COLOUR_HIGHLIGHTTEXT), wx.SystemSettings.GetColour(wx.SYS_COLOUR_HIGHLIGHT))
+
+        self.SetStyle(wx_start, wx_end, highlight_style)
+        self.ShowPosition(wx_start)
+
+        # Store State for next time
+        self.last_match_start = wx_start
+        self.last_match_end = wx_end
+        self.last_py_start = py_start
+        self.last_py_end = py_end
+
+        # Keep searching from the python index
+        self.current_search_pos = py_end
+
+        # Keep focus on search bar
+        # self.search_ctrl.SetFocus()
+
+    def clear_highlight(self):
+        """Clear previous highlight, keeping the original style."""
+        if self.last_match_start != -1:
+            # Restore background previous style
+            restore_bg = self.saved_bg_color
+            if not restore_bg.IsOk():
+                restore_bg = self.GetBackgroundColour()
+            # Restore foreground previous style
+            restore_fg = self.saved_fg_color
+            if not restore_fg.IsOk():
+                restore_fg = self.GetForegroundColour()
+            # Restore the previous style for the previous match
+            default_style = wx.TextAttr(restore_fg, restore_bg)
+            self.SetStyle(
+                self.last_match_start, self.last_match_end, default_style
+            )
+            self.Refresh()
+            self.last_match_start = -1
+            self.last_match_end = -1
+
+
+class ANSIStyledTextCtrl(stc.StyledTextCtrl):
+    def __init__(self, parent, *args, **kwargs):
+        super().__init__(parent)
+        self.gauge_value = 0
+        self.gauge_is_visible = False
+        self.next_style_id = 1
+        self.color_to_style = {}
+        self.MAX_STYLES = 250
+        # Default foreground and background colors
+        self.default_fg = TermColors["WHITE"]
+        self.default_bg = TermColors["BLACK"]
+        self.SetUndoCollection(False)
+        self.SetWrapMode(stc.STC_WRAP_NONE)
+        self.SetMarginWidth(1, 0)
+        self.StyleSetFont(stc.STC_STYLE_DEFAULT,
+            wx.Font(
+                10,
+                wx.FONTFAMILY_DEFAULT,
+                wx.FONTSTYLE_NORMAL,
+                wx.FONTWEIGHT_NORMAL,
+                faceName=get_best_monospace_font(),
+            )
+        )
+        self.StyleSetForeground(stc.STC_STYLE_DEFAULT, wx.Colour(*self.default_fg.value))
+        self.StyleSetBackground(stc.STC_STYLE_DEFAULT, wx.Colour(*self.default_bg.value))
+        self.StyleClearAll()
+        self.SetSelBackground(True, wx.SystemSettings.GetColour(wx.SYS_COLOUR_HIGHLIGHT))
+        self.SetSelForeground(True, wx.SystemSettings.GetColour(wx.SYS_COLOUR_HIGHLIGHTTEXT))
+
+    def _center_on_pos(self, pos):
+        """Helper to smoothly center the camera on a specific byte position"""
+        line_num = self.LineFromPosition(pos)
+        lines_on_screen = self.LinesOnScreen()
+
+        # Calculate the top visible line so our target is perfectly in the middle
+        self.SetFirstVisibleLine(max(0, line_num - lines_on_screen // 2))
+
+    def clear_highlight(self):
+        self.SetEmptySelection(self.GetCurrentPos())
+
+    def jump_to_result(self, search_text, forward=True, match_case=False):
+        """Jumps cursor to the next/prev occurrence without re-highlighting the whole file"""
+        if not search_text:
+            return
+
+        self.SetSearchFlags(stc.STC_FIND_MATCHCASE if match_case else 0)
+
+        current_pos = self.GetCurrentPos()
+        anchor_pos = self.GetAnchor()
+
+        # Set directional raycast targets
+        if forward:
+            start_search = max(current_pos, anchor_pos)
+            self.SetTargetStart(start_search)
+            self.SetTargetEnd(self.GetLength())
+        else:
+            start_search = min(current_pos, anchor_pos)
+            self.SetTargetStart(start_search)
+            self.SetTargetEnd(0)
+
+        pos = self.SearchInTarget(search_text)
+
+        # Wrap Around Logic
+        if pos == -1:
+            if forward:
+                self.SetTargetStart(0)
+                self.SetTargetEnd(start_search)
+            else:
+                self.SetTargetStart(self.GetLength())
+                self.SetTargetEnd(start_search)
+            pos = self.SearchInTarget(search_text)
+
+        if pos != -1:
+            match_start = self.GetTargetStart()
+            match_end = self.GetTargetEnd()
+
+            # Select the word to visually show which one we jumped to
+            self.SetSelection(match_start, match_end)
+
+            self._center_on_pos(match_start)
+            # Scroll horizontaly if needed
+            self.EnsureCaretVisible()
+
+    def get_or_create_style(self, style):
+
+        """Dynamically allocates a style ID for a new RGB color"""
+        # Return from cache if we already created a style for this color
+        if style in self.color_to_style:
+            return self.color_to_style[style]
+
+        # If we have free styles, create a new one
+        if self.next_style_id <= self.MAX_STYLES:
+            style_id = self.next_style_id
+            self.next_style_id += 1
+
+            # Apply the new color to the style ID
+            color_fg, color_bg, ul, st, it, bold = style
+            self.StyleSetForeground(style_id, wx.Colour(*color_fg))
+            self.StyleSetBackground(style_id, wx.Colour(*color_bg))
+            self.StyleSetBold(style_id, bold)
+            self.StyleSetItalic(style_id, it)
+            self.StyleSetUnderline(style_id, ul)
+            self.color_to_style[style] = style_id
+            return style_id
+
+        # If we run out of the 250 allowed styles, safely fallback to default (0)
+        return 0
+
+    def append_ansi_text(self, segments):
+
+        # Apply text and styles
+        styles = []
+        full_text = []
+
+        for text, fg, bg, ul, st, it, bold_fg, bold_bg in segments:
+            if text:
+                # Create a font that matches the default one but with underline if needed
+                # font = self.GetFont()
+                # if ul:
+                #     font.SetUnderlined(True)
+                # else:
+                #     font.SetUnderlined(False)
+                # if it:
+                #     font.MakeItalic()
+                # if st:
+                #     font.SetStrikethrough(True)
+                # # Create text attribute with the font
+                if bold_fg:
+                    # font = font.Bold()
+                    if isinstance(fg, TermColors):
+                        color_fg = (
+                            TermColors["BRIGHT_" + fg.name].value
+                            if "BRIGHT" not in fg.name
+                            else TermColors[fg.name].value
+                        )
+                    else:
+                        color_fg = fg
+                else:
+                    if isinstance(fg, TermColors):
+                        color_fg = TermColors[fg.name].value
+                    else:
+                        color_fg = fg
+                if bold_bg:
+                    if isinstance(fg, TermColors):
+                        color_bg = (
+                            TermColors["BRIGHT_" + bg.name].value
+                            if "BRIGHT" not in bg.name
+                            else TermColors[bg.name].value
+                        )
+                    else:
+                        color_bg = bg
+                else:
+                    if isinstance(bg, TermColors):
+                        color_bg = TermColors[bg.name].value
+                    else:
+                        color_bg = bg
+                byte_len = len(text.encode("utf-8"))
+                full_text.append(text)
+                styles.append((byte_len, (color_fg, color_bg, ul, st, it, bold_fg)))
+
+                # self.Freeze()
+        self.SetReadOnly(False)
+        start_pos = self.GetLength()
+        # style = wx.TextAttr(wx.Colour(*color_fg), wx.Colour(*color_bg), font)
+        # self.SetDefaultStyle(style)
+        # Regex to extract the progress bar value from the tqdm output
+        # regex_tqdm = re.match(r"\r([\d\s]+)%\|.*\|(.*)", text)
+        # regex_click_progressbar = re.match(r"\r(.*) \[(#*)(-*)\](.*)", text)
+        # if regex_tqdm:
+        #     if not self.gauge_is_visible:
+        #         self.gauge_sizer.ShowItems(True)
+        #         self.gauge_is_visible = True
+        #         self.Layout()
+        #     self.gauge_value = int(regex_tqdm.group(1))
+        #     self.gauge.SetValue(self.gauge_value)
+        #     self.gauge_text.SetValue(regex_tqdm.group(2))
+        # elif regex_click_progressbar:
+        #     if not self.gauge_is_visible:
+        #         self.gauge_sizer.ShowItems(True)
+        #         self.gauge_is_visible = True
+        #         self.Layout()
+        #     completed = len(regex_click_progressbar.group(2))
+        #     total = completed + len(regex_click_progressbar.group(3))
+        #     if total > 0:
+        #         self.gauge_value = int((completed / total) * 100)
+        #     else:
+        #         self.gauge_value = 0
+        #     self.gauge.SetValue(self.gauge_value)
+        #     self.gauge_text.SetValue(
+        #         regex_click_progressbar.group(1)
+        #         + " "
+        #         + regex_click_progressbar.group(4)
+        #     )
+        # else:
+        #     self.AppendText(text)
+        self.AppendText("".join(full_text))
+        self.StartStyling(start_pos)
+        for length, style in styles:
+            self.SetStyling(length, self.get_or_create_style(style))
+        self.SetReadOnly(True)
+        self.GotoPos(self.GetLength())
+
 
 def blend(c1, c2, factor):
     return wx.Colour(
@@ -393,14 +586,46 @@ class SearchPanel(wx.Panel):
         self.sizer.Add(self.btn_next, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         self.SetSizer(self.sizer)
 
-        # Define some bindings (Close / Enter or Next)
-        self.search_ctrl.Bind(wx.EVT_SEARCHCTRL_CANCEL_BTN, self.on_close)
-        self.search_ctrl.Bind(wx.EVT_TEXT_ENTER, self.on_find_next)
-        self.search_ctrl.Bind(wx.EVT_SEARCHCTRL_SEARCH_BTN, self.on_find_next)
-        self.btn_next.Bind(wx.EVT_BUTTON, self.on_find_next)
+        # Bind to Cancel event to clear the search highlight when the search is closed
+        self.search_ctrl.Bind(wx.EVT_SEARCH_CANCEL, self.on_search_cancel)
+        # Bind to key events to allow navigation with Enter and Shift+Enter
+        self.search_ctrl.Bind(wx.EVT_CHAR_HOOK, self.on_search_key)
+        # Bind to the Next button to trigger the search
+        self.btn_next.Bind(wx.EVT_BUTTON, self.on_search_button)
 
         # Start Hidden
         self.Hide()
+
+    def on_search_key(self, event):
+        """Intercepts keyboard presses inside the search box"""
+        # Check if the key pressed was Enter
+        if event.GetKeyCode() == wx.WXK_RETURN:
+            query = self.search_ctrl.GetValue()
+            if not query:
+                return
+
+            # If Shift is held down, search backwards
+            if event.ShiftDown():
+                self.target_ctrl.jump_to_result(query, forward=False)
+            else:
+                self.target_ctrl.jump_to_result(query, forward=True)
+        else:
+            # CRITICAL: If they pressed any other key (letters, backspace, etc.),
+            # we must call event.Skip() so the text actually appears in the box!
+            event.Skip()
+
+    def on_search_button(self, event):
+        """Triggered when the user clicks the Next button in the SearchCtrl"""
+        query = self.search_ctrl.GetValue()
+        if not query:
+            return
+
+        self.target_ctrl.jump_to_result(query, forward=True)
+
+    def on_search_cancel(self, event):
+        """Clears the search box and removes highlights"""
+        self.search_ctrl.SetValue("")
+        self.target_ctrl.clear_highlight()
 
     def show_search(self):
         """Public method to trigger the search bar to appear."""
@@ -414,108 +639,16 @@ class SearchPanel(wx.Panel):
 
     def on_close(self, event=None):
         """Hide the search bar and return focus to text."""
-        self.clear_highlight()
+        self.target_ctrl.clear_highlight()
         self.Hide()
         self.GetParent().Layout()
         self.target_ctrl.SetFocus()
-
-    def clear_highlight(self):
-        """Clear previous highlight, keeping the original style."""
-        if self.last_match_start != -1:
-            # Restore background previous style
-            restore_bg = self.saved_bg_color
-            if not restore_bg.IsOk():
-                restore_bg = self.target_ctrl.GetBackgroundColour()
-            # Restore foreground previous style
-            restore_fg = self.saved_fg_color
-            if not restore_fg.IsOk():
-                restore_fg = self.target_ctrl.GetForegroundColour()
-            # Restore the previous style for the previous match
-            default_style = wx.TextAttr(restore_fg, restore_bg)
-            self.target_ctrl.SetStyle(
-                self.last_match_start, self.last_match_end, default_style
-            )
-            self.target_ctrl.Refresh()
-            self.last_match_start = -1
-            self.last_match_end = -1
-
-    def python_to_wx_index(self, full_text, python_index):
-        """
-        Converts a Python string index (0-based code points) to a
-        wxPython/Windows control index (UTF-16 code units).
-        """
-        # Take the text UP TO the point we are interested in
-        substring = full_text[:python_index]
-
-        # Encode as UTF-16LE (Windows native).
-        # Divide by 2 because UTF-16 is 2 bytes per character.
-        return len(substring.encode("utf-16le")) // 2
-
-    def on_find_next(self, event):
-        """Search logic."""
-        query = self.search_ctrl.GetValue()
-        if not query:
-            return
-
-        self.clear_highlight()
-
-        last_pos = self.target_ctrl.GetLastPosition()
-        content = self.target_ctrl.GetRange(0, last_pos)
-
-        # Case-insensitive search
-        idx = content.lower().find(query.lower(), self.current_search_pos)
-
-        # Wrap around
-        if idx == -1:
-            idx = content.lower().find(query.lower(), 0)
-            if idx == -1:
-                return
-
-        # Calculate Python Start/End
-        py_start = idx
-        py_end = idx + len(query)
-
-        # Convert to wx/Windows Indices
-        # We calculate the UTF-16 position for the start and the end.
-        wx_start = self.python_to_wx_index(content, py_start)
-
-        # Note: We calculate end based on the substring length in UTF-16
-        # This handles cases where the SEARCH QUERY ITSELF contains an emoji.
-        match_text = content[py_start:py_end]
-        match_len_utf16 = len(match_text.encode("utf-16le")) // 2
-        wx_end = wx_start + match_len_utf16
-        existing_attr = wx.TextAttr()
-        self.target_ctrl.GetStyle(wx_start, existing_attr)
-
-        # Save the background and forexground colors
-        # If the text has no specific bg set, this might be Null, which we handle in clear_highlight.
-        self.saved_bg_color = existing_attr.GetBackgroundColour()
-        self.saved_fg_color = existing_attr.GetTextColour()
-        if not self.saved_bg_color.IsOk():
-            self.saved_bg_color = self.target_ctrl.GetBackgroundColour()
-        if not self.saved_fg_color.IsOk():
-            self.saved_fg_color = self.target_ctrl.GetForegroundColour()
-
-        # Highlight found text
-        highlight_style = wx.TextAttr(wx.BLACK, wx.Colour(255, 255, 0))
-        self.target_ctrl.SetStyle(wx_start, wx_end, highlight_style)
-        self.target_ctrl.ShowPosition(wx_start)
-
-        # Store State
-        self.last_match_start = wx_start
-        self.last_match_end = wx_end
-
-        # Keep searching from the python index
-        self.current_search_pos = py_end
-
-        # Keep focus on search bar
-        self.search_ctrl.SetFocus()
 
 
 class LogPanel(wx.Panel):
     """A panel containing a shared log in a StaticBox."""
 
-    def __init__(self, parent: Guick):
+    def __init__(self, parent: Guick, color_engine="optimized"):
         super().__init__(parent)
         self.SetBackgroundColour(wx.SystemSettings.GetColour(wx.SYS_COLOUR_WINDOW))
 
@@ -540,17 +673,15 @@ class LogPanel(wx.Panel):
         self.gauge_sizer.Add(self.gauge, 1, wx.EXPAND | wx.ALL, 2)
         self.gauge_sizer.Add(self.gauge_text, 1, wx.EXPAND | wx.ALL, 2)
         # Create the log
-        self.log_ctrl = ANSITextCtrl(self)
-        self.log_ctrl.SetFont(
-            wx.Font(
-                10,
-                wx.FONTFAMILY_DEFAULT,
-                wx.FONTSTYLE_NORMAL,
-                wx.FONTWEIGHT_NORMAL,
-                faceName=font,
-            )
-        )
-        self.log_ctrl.SetBackgroundColour(wx.Colour(*TermColors.BLACK.value))
+        if color_engine == "optimized":
+            # Can handle massive logs but support only 250 different styles (font
+            # styles + colors)
+            self.log_ctrl = ANSIStyledTextCtrl(self)
+        elif color_engine == "true_color":
+            # Can handle unlimited styles and colors but becomes very slow (even frozen) with large logs
+            self.log_ctrl = ANSITextCtrl(self)
+        else:
+            raise ValueError(f"Invalid color engine: {color_engine}")
         self.search_panel = SearchPanel(self, target_text_ctrl=self.log_ctrl)
 
         box_sizer.Add(self.log_ctrl, 1, wx.EXPAND | wx.ALL, 2)
@@ -680,21 +811,235 @@ def get_best_monospace_font() -> str:
 
 
 class RedirectText:
-    def __init__(self, my_text_ctrl: ANSITextCtrl) -> None:
-        self.out = my_text_ctrl
+    def __init__(
+        self, my_text_ctrl: ANSITextCtrl, batch_size=5000, flush_interval=0.1
+    ) -> None:
+        self.text_ctrl = my_text_ctrl
+        self.queue = queue.Queue()
+        self.batch_size = batch_size
+        self.flush_interval = flush_interval
+        self.running = True
+
+        # Start the batch processor thread
+        self.thread = threading.Thread(target=self._process_queue, daemon=True)
+        self.thread.start()
 
     def write(self, string: str) -> None:
-        wx.CallAfter(self.out.append_ansi_text, string)
+        # Only queue non-empty messages
+        if string:
+            # Convert bytes to string if necessary
+            if isinstance(string, bytes):
+                string = string.decode("utf-8", errors="replace")
+            self.queue.put(string)
 
     def flush(self):
         pass
+
+    def _process_queue(self):
+        """Background thread that batches and sends logs to GUI"""
+        buffer = []
+        last_flush = time.time()
+
+        while self.running:
+            flush_now = False
+            # Try to get messages without blocking too long
+            while True:
+                try:
+                    msg = self.queue.get(timeout=0.05)
+
+                    if msg is None:
+                        flush_now = True
+                        break
+
+                    # msg = self.queue.get_nowait()
+                    # buffer.append(msg)
+                    if isinstance(msg, bytes):
+                        msg = msg.decode("utf-8", errors="replace")
+                    buffer.append(str(msg))
+
+                    if len(buffer) >= self.batch_size or (time.time() - last_flush) >= self.flush_interval:
+                        break
+                except queue.Empty:
+                    # Queue is empty, break and check if we should flush
+                    break
+
+            # Flush if we have messages and either:
+            # - buffer is full, or
+            # - enough time has passed
+            if buffer and (
+                len(buffer) >= self.batch_size
+                or time.time() - last_flush >= self.flush_interval or flush_now
+            ):
+                combined = "".join(buffer)
+                print(
+                    f"[DEBUG] Flushing {len(buffer)} messages to GUI",
+                    file=sys.__stdout__,
+                )
+                wx.CallAfter(self._update_text_ctrl, combined)
+                buffer.clear()
+                last_flush = time.time()
 
     def isatty(self):
         # Pretend it's a TTY (so that we can use colorized output)
         return True
 
     def __getattr__(self, attr):
-        return getattr(self.out, attr)
+        return getattr(self.text_ctrl, attr)
+
+    def _update_text_ctrl(self, text):
+        """Update the TextCtrl on the GUI thread"""
+        if self.text_ctrl:
+            # Find all ANSI color code segments
+            segments = []
+            last_end = 0
+            current_fg = self.default_fg
+            current_bg = self.default_bg
+            underline = False
+            strikethrough = False
+            italic = False
+            bold_fg = False
+            bold_bg = False
+            # self.SetForegroundColour(wx.Colour(*TermColors.WHITE.value))
+            # Split the message by ANSI codes
+            if isinstance(text, bytes):
+                text = text.decode("utf-8", errors="replace")
+            for match in ANSI_ESCAPE_PATTERN.finditer(text):
+                # Add text before the ANSI code
+                if match.start() > last_end:
+                    segments.append(
+                        (
+                            text[last_end : match.start()],
+                            current_fg,
+                            current_bg,
+                            underline,
+                            strikethrough,
+                            italic,
+                            bold_fg,
+                            bold_bg,
+                        )
+                    )
+
+                # Extract and interpret ANSI code parameters
+                params_str = match.group(1)
+                # print(f"{params_str=}")
+                params = iter([int(p) for p in params_str.split(";") if p])
+                for param in params:
+                    # Process ANSI parameters
+                    if param == AnsiEscapeCodes.ResetFormat:
+                        current_fg = self.default_fg
+                        current_bg = self.default_bg
+                        underline = False
+                        italic = False
+                        bold_fg = False
+                        bold_bg = False
+                        strikethrough = False
+                    elif param == AnsiEscapeCodes.UnderLinedText:
+                        underline = True
+                    elif param == AnsiEscapeCodes.StrikeThrough:
+                        strikethrough = True
+                    elif param == AnsiEscapeCodes.ItalicText:
+                        italic = True
+                    elif param == AnsiEscapeCodes.BoldText:
+                        bold_fg = True
+                    elif (
+                        AnsiEscapeCodes.BackgroundColorStart
+                        <= param
+                        <= AnsiEscapeCodes.BackgroundColorEnd
+                    ):
+                        current_bg = ANSI_COLORS[
+                            param - AnsiEscapeCodes.BackgroundColorStart
+                        ]
+                    elif (
+                        AnsiEscapeCodes.TextColorStart
+                        <= param
+                        <= AnsiEscapeCodes.TextColorEnd
+                    ):
+                        current_fg = ANSI_COLORS[param - AnsiEscapeCodes.TextColorStart]
+                    elif (
+                        AnsiEscapeCodes.BackgroundBrightColorStart
+                        <= param
+                        <= AnsiEscapeCodes.BackgroundBrightColorEnd
+                    ):
+                        current_bg = ANSI_COLORS[
+                            param - AnsiEscapeCodes.BackgroundBrightColorStart
+                        ]
+                        bold_bg = True
+                    elif (
+                        AnsiEscapeCodes.TextBrightColorStart
+                        <= param
+                        <= AnsiEscapeCodes.TextBrightColorEnd
+                    ):
+                        current_fg = ANSI_COLORS[
+                            param - AnsiEscapeCodes.TextBrightColorStart
+                        ]
+                        bold_fg = True
+                    # 256 colors or RGB
+                    elif param in {
+                        AnsiEscapeCodes.Text256Color,
+                        AnsiEscapeCodes.Background256Color,
+                    }:
+                        second_param = next(params, None)
+                        # 256 colors
+                        if second_param == 5:
+                            color_code = next(params, None)
+                            # Standard colors
+                            if color_code < 16:
+                                color = ANSI_COLORS[color_code]
+                            # 6 x 6 x 6 color cube
+                            elif 16 <= color_code <= 231:
+                                color_code -= 16
+                                r = color_code // 36
+                                g = (color_code % 36) // 6
+                                b = color_code % 6
+
+                                def level(n):
+                                    return 0 if n == 0 else 55 + n * 40
+
+                                color = (level(r), level(g), level(b))
+
+                            else:
+                                # Grayscale ramp
+                                gray = 8 + (color_code - 232) * 10
+                                color = (gray, gray, gray)
+                            # print(f"{color=}")
+                        # rgb values
+                        elif second_param == 2:
+                            red = next(params, None)
+                            green = next(params, None)
+                            blue = next(params, None)
+                            color = (red, green, blue)
+                        if param == AnsiEscapeCodes.Text256Color:
+                            current_fg = color
+                        else:
+                            current_bg = color
+
+                last_end = match.end()
+
+            # Add remaining text
+            if last_end < len(text):
+                segments.append(
+                    (
+                        text[last_end:],
+                        current_fg,
+                        current_bg,
+                        underline,
+                        strikethrough,
+                        italic,
+                        bold_fg,
+                        bold_bg,
+                    )
+                )
+            self.text_ctrl.append_ansi_text(segments)
+
+    def shutdown(self):
+        """Stop the background thread"""
+        import traceback
+
+        print(f"[DEBUG] shutdown() called! Stack trace:", file=sys.__stdout__)
+        traceback.print_stack(file=sys.__stdout__)
+        self.running = False
+        if self.thread.is_alive():
+            self.thread.join(timeout=1)
 
 
 class NavButton(wx.Panel):
@@ -1387,7 +1732,7 @@ class CommandPanel(scrolled.ScrolledPanel):
 
 
 class Guick(wx.Frame):
-    def __init__(self, ctx: Context, size: wx.Size = None) -> None:
+    def __init__(self, ctx: Context, size: wx.Size = None, color_engine: str = "optimized") -> None:
         wx.Frame.__init__(self, None, -1, ctx.command.name)
         self.ctx = ctx
         self.cmd_panels = {}
@@ -1494,7 +1839,7 @@ class Guick(wx.Frame):
 
         # # Create the log
         log_panel_height = 200
-        self.log_panel = LogPanel(self)
+        self.log_panel = LogPanel(self, color_engine=color_engine)
 
         # Customize the caption for Log panel
         art = self._mgr.GetArtProvider()
@@ -1867,7 +2212,7 @@ class Guick(wx.Frame):
 
         # Invoke the command in a separate thread to avoid blocking the GUI
         self.ctx.args = args
-        self.thread = Thread(
+        self.thread = threading.Thread(
             target=selected_command.invoke, args=(self.ctx,), daemon=True
         )
         self.thread.start()
