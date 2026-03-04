@@ -1495,20 +1495,6 @@ class Guick(wx.Frame):
         # # Create the log
         log_panel_height = 200
         self.log_panel = LogPanel(self)
-        self._mgr.AddPane(
-            self.log_panel,
-            aui.AuiPaneInfo()
-            .Name("log")
-            .Caption("Log")
-            .Bottom()
-            .CloseButton(False)
-            .MaximizeButton(True)
-            .MinimizeButton(True)
-            .Resizable(True)
-            .MinSize(wx.Size(-1, log_panel_height))
-            .PaneBorder(False)
-            .Layer(1),
-        )
 
         # Customize the caption for Log panel
         art = self._mgr.GetArtProvider()
@@ -1550,30 +1536,61 @@ class Guick(wx.Frame):
 
         safe_height = min(total_height, max_client_height)
 
-        self.SetClientSize(wx.Size(total_width, safe_height))
-        self.CenterOnScreen()
-        self._mgr.Update()
-        wx.CallAfter(self._unlock_log_sash)
 
         # If a larger size is specified, apply it
         if size:
             current_size = self.GetClientSize()
             new_width = (
-                max(size[0], current_size.width)
+                max(size[0], total_width)
                 if size[0] != -1
                 else current_size.width
             )
             new_height = (
-                max(size[1], current_size.height)
+                max(size[1], safe_height)
                 if size[1] != -1
-                else current_size.height
+                else safe_height
             )
-            self.SetClientSize((new_width, new_height))
+            self.SetClientSize(wx.Size(new_width, new_height))
+            self._mgr.AddPane(
+                self.log_panel,
+                aui.AuiPaneInfo()
+                .Name("log")
+                .Caption("Log")
+                .Bottom()
+                .CloseButton(False)
+                .MaximizeButton(True)
+                .MinimizeButton(True)
+                .Resizable(True)
+                .MinSize(wx.Size(new_width, new_height - safe_height + log_panel_height))
+                .PaneBorder(False)
+                .Layer(1),
+            )
+        else:
+            self.SetClientSize(wx.Size(total_width, safe_height))
+            # # Create the log
+            self._mgr.AddPane(
+                self.log_panel,
+                aui.AuiPaneInfo()
+                .Name("log")
+                .Caption("Log")
+                .Bottom()
+                .CloseButton(False)
+                .MaximizeButton(True)
+                .MinimizeButton(True)
+                .Resizable(True)
+                .MinSize(wx.Size(-1, log_panel_height))
+                .PaneBorder(False)
+                .Layer(1),
+            )
+
+        self._mgr.Update()
+        wx.CallAfter(self._unlock_log_sash)
+        self.CenterOnScreen()
 
         # self.CreateStatusBar()
         # self.SetStatusText("")
 
-        self.Centre()
+        # self.Centre()
 
         self.Show()
 
