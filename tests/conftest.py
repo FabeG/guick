@@ -27,6 +27,9 @@ def cleanup_gui():
         wx.SafeYield() 
     
     # We use CallAfter to ensure we are in the right context
-    wx.CallAfter(finalize)
-    # Give it a tiny bit of breath to clear the queue
-    wx.SafeYield()
+    try:
+        wx.CallAfter(finalize)
+        # Give it a tiny bit of breath to clear the queue
+        wx.SafeYield()
+    except AssertionError:
+        pass
