@@ -13,7 +13,7 @@ import guick
 import time
 
 
-def test_deprecated_string_option(tmp_path, mocker):
+def test_deprecated_string_option(wx_app, tmp_path, mocker):
     @click.command(cls=guick.CommandGui)
     @click.option("--s", default="no value", deprecated=True)
     def cli(s):
@@ -49,7 +49,7 @@ def test_deprecated_string_option(tmp_path, mocker):
         ("\N{SNOWMAN}", "S:[\N{SNOWMAN}]"),
     ],
 )
-def test_string_option(tmp_path, mocker, args, expect):
+def test_string_option(wx_app, tmp_path, mocker, args, expect):
     @click.command(cls=guick.CommandGui)
     @click.option("--s", default="no value")
     def cli(s):
@@ -84,7 +84,7 @@ def test_string_option(tmp_path, mocker, args, expect):
         ("x", "'x' is not a valid integer."),
     ],
 )
-def test_int_option(tmp_path, mocker, args, expect):
+def test_int_option(wx_app, tmp_path, mocker, args, expect):
     @click.command(cls=guick.CommandGui)
     @click.option("--i", default=42)
     def cli(i):
@@ -126,7 +126,7 @@ def test_int_option(tmp_path, mocker, args, expect):
         ("x", "'x' is not a valid UUID."),
     ],
 )
-def test_uuid_option(tmp_path, mocker, args, expect):
+def test_uuid_option(wx_app, tmp_path, mocker, args, expect):
     @click.command(cls=guick.CommandGui)
     @click.option(
         "--u", default="ba122011-349f-423b-873b-9d6a79c688ab", type=click.UUID
@@ -167,7 +167,7 @@ def test_uuid_option(tmp_path, mocker, args, expect):
         ("x", "'x' is not a valid float."),
     ],
 )
-def test_float_option(tmp_path, mocker, args, expect):
+def test_float_option(wx_app, tmp_path, mocker, args, expect):
     @click.command(cls=guick.CommandGui)
     @click.option("--f", default=42.0)
     def cli(f):
@@ -201,7 +201,7 @@ def test_float_option(tmp_path, mocker, args, expect):
 @pytest.mark.parametrize(
     ("args", "expect", "default"), [(True, "True", True), (False, "False", True)]
 )
-def test_boolean_switch(tmp_path, mocker, args, expect, default):
+def test_boolean_switch(wx_app, tmp_path, mocker, args, expect, default):
     @click.command(cls=guick.CommandGui)
     @click.option("--on/--off", default=default)
     def cli(on):
@@ -229,7 +229,7 @@ def test_boolean_switch(tmp_path, mocker, args, expect, default):
 
 @pytest.mark.parametrize("default", [True, False])
 @pytest.mark.parametrize(("args", "expect"), [(True, "True"), (False, "False")])
-def test_boolean_flag(tmp_path, mocker, default, args, expect):
+def test_boolean_flag(wx_app, tmp_path, mocker, default, args, expect):
     @click.command(cls=guick.CommandGui)
     @click.option("--f", is_flag=True, default=default)
     def cli(f):
@@ -263,7 +263,7 @@ def test_boolean_flag(tmp_path, mocker, default, args, expect):
             (False, "False")
         ]
 )
-def test_boolean_conversion(tmp_path, mocker, value, expect):
+def test_boolean_conversion(wx_app, tmp_path, mocker, value, expect):
     @click.command(cls=guick.CommandGui)
     @click.option("--flag", type=bool)
     def cli(flag):
@@ -290,7 +290,7 @@ def test_boolean_conversion(tmp_path, mocker, value, expect):
     assert expect in (tmp_path / "logfile.log").read_text(encoding="utf-8")
 
 
-def test_file_option(tmp_path, mocker):
+def test_file_option(wx_app, tmp_path, mocker):
     @click.command(cls=guick.CommandGui)
     @click.option("--file", type=click.File("w"))
     def cli_input(file):
@@ -324,7 +324,7 @@ def test_file_option(tmp_path, mocker):
     assert "Hello World" in (tmp_path / "logfile.log").read_text(encoding="utf-8")
 
 
-def test_path_option(tmp_path, mocker):
+def test_path_option(wx_app, tmp_path, mocker):
     @click.command(cls=guick.CommandGui)
     @click.option("-O", type=click.Path(file_okay=False, exists=True, writable=True))
     def write_to_dir(o):
@@ -371,7 +371,7 @@ def test_path_option(tmp_path, mocker):
     assert "is a file" in (tmp_path / "logfile.log").read_text(encoding="utf-8")
 
 
-def test_path_option_2(tmp_path, mocker):
+def test_path_option_2(wx_app, tmp_path, mocker):
     @click.command(cls=guick.CommandGui)
     @click.option("-f", type=click.Path(exists=True))
     def showtype(f):
@@ -421,7 +421,7 @@ def test_path_option_2(tmp_path, mocker):
         (".", "exists=True"),
     ],
 )
-def test_path_option_3(tmp_path, mocker, args, expect):
+def test_path_option_3(wx_app, tmp_path, mocker, args, expect):
     @click.command(cls=guick.CommandGui)
     @click.option("-f", type=click.Path())
     def exists(f):
@@ -455,7 +455,7 @@ def test_path_option_3(tmp_path, mocker, args, expect):
         ("meh", "'meh' is not one of 'foo', 'bar', 'baz'."),
     ],
 )
-def test_choice_option(tmp_path, mocker, args, expect):
+def test_choice_option(wx_app, tmp_path, mocker, args, expect):
     @click.command(cls=guick.CommandGui)
     @click.option("--method", type=click.Choice(["foo", "bar", "baz"]))
     def cli(method):
@@ -493,7 +493,7 @@ def test_choice_option(tmp_path, mocker, args, expect):
         ("meh", "'meh' is not one of 'foo', 'bar', 'baz'."),
     ],
 )
-def test_choice_argument(tmp_path, mocker, args, expect):
+def test_choice_argument(wx_app, tmp_path, mocker, args, expect):
     @click.command(cls=guick.CommandGui)
     @click.argument("method", type=click.Choice(["foo", "bar", "baz"]))
     def cli(method):
@@ -532,7 +532,7 @@ def test_choice_argument(tmp_path, mocker, args, expect):
     ],
 )
 @pytest.mark.skipif(click.__version__ <= "8.1.8", reason="requires click 8.1.8 or higher")
-def test_choice_argument_enum(tmp_path, mocker, args, expect):
+def test_choice_argument_enum(wx_app, tmp_path, mocker, args, expect):
     class MyEnum(str, enum.Enum):
         FOO = "foo-value"
         BAR = "bar-value"
@@ -579,7 +579,7 @@ def test_choice_argument_enum(tmp_path, mocker, args, expect):
     ],
 )
 @pytest.mark.skipif(click.__version__ <= "8.1.8", reason="requires click 8.1.8 or higher")
-def test_choice_argument_custom_type(tmp_path, mocker, args, expect):
+def test_choice_argument_custom_type(wx_app, tmp_path, mocker, args, expect):
     class MyClass:
         def __init__(self, value: str) -> None:
             self.value = value
@@ -628,7 +628,7 @@ def test_choice_argument_custom_type(tmp_path, mocker, args, expect):
         ("2015-09", "'2015-09' does not match the formats '%Y-%m-%d', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S'."),
     ],
 )
-def test_datetime_option_default(tmp_path, mocker, args, expect):
+def test_datetime_option_default(wx_app, tmp_path, mocker, args, expect):
     @click.command(cls=guick.CommandGui)
     @click.option("--start_date", type=click.DateTime())
     def cli(start_date):
@@ -666,7 +666,7 @@ def test_datetime_option_default(tmp_path, mocker, args, expect):
         # ("2015-09", "'2015-09' does not match the formats '%Y-%m-%d', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S'."),
     ],
 )
-def test_datetime_option_with_timepicker(tmp_path, mocker, args, date_format, expect_entry, expected_date):
+def test_datetime_option_with_timepicker(wx_app, tmp_path, mocker, args, date_format, expect_entry, expected_date):
 
     mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
@@ -736,7 +736,7 @@ def test_datetime_option_with_timepicker(tmp_path, mocker, args, date_format, ex
         ((28, 9, 2015), "%A %B %d, %Y", "Monday September 28, 2015", "2015-09-28T00:00:00"),
     ],
 )
-def test_datetime_option_with_datepicker(tmp_path, mocker, args, date_format, expect_entry, expected_date):
+def test_datetime_option_with_datepicker(wx_app, tmp_path, mocker, args, date_format, expect_entry, expected_date):
 
     mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
@@ -807,7 +807,7 @@ def test_datetime_option_with_datepicker(tmp_path, mocker, args, date_format, ex
         # ("2015-09", "'2015-09' does not match the formats '%Y-%m-%d', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S'."),
     ],
 )
-def test_datetime_option_with_datetimepicker(tmp_path, mocker, args, date_format, expect_entry, expected_date):
+def test_datetime_option_with_datetimepicker(wx_app, tmp_path, mocker, args, date_format, expect_entry, expected_date):
 
     mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
@@ -893,7 +893,7 @@ def test_datetime_option_with_datetimepicker(tmp_path, mocker, args, date_format
         # ("2015-09", "'2015-09' does not match the formats '%Y-%m-%d', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S'."),
     ],
 )
-def test_datetime_option_with_datetimepicker_initialized(tmp_path, mocker, args, date_format, expect_entry, expected_date):
+def test_datetime_option_with_datetimepicker_initialized(wx_app, tmp_path, mocker, args, date_format, expect_entry, expected_date):
 
     mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
@@ -973,7 +973,7 @@ def test_datetime_option_with_datetimepicker_initialized(tmp_path, mocker, args,
 
 
 
-def test_datetime_option_filename_to_read(tmp_path, mocker):
+def test_datetime_option_filename_to_read(wx_app, tmp_path, mocker):
 
     mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
@@ -1027,7 +1027,7 @@ def test_datetime_option_filename_to_read(tmp_path, mocker):
     assert str(tmp_file) in (tmp_path / "logfile.log").read_text(encoding="utf-8")
 
 
-def test_datetime_option_filename_to_write(tmp_path, mocker):
+def test_datetime_option_filename_to_write(wx_app, tmp_path, mocker):
 
     mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
@@ -1081,7 +1081,7 @@ def test_datetime_option_filename_to_write(tmp_path, mocker):
     assert str(tmp_file) in (tmp_path / "logfile.log").read_text(encoding="utf-8")
 
 
-def test_datetime_option_dirname(tmp_path, mocker):
+def test_datetime_option_dirname(wx_app, tmp_path, mocker):
 
     mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
@@ -1132,7 +1132,7 @@ def test_datetime_option_dirname(tmp_path, mocker):
     assert str(tmp_path) in (tmp_path / "logfile.log").read_text(encoding="utf-8")
 
 
-def test_help(tmp_path, mocker, wx_app):
+def test_help(wx_app, tmp_path, mocker):
 
     @click.command(cls=guick.CommandGui)
     @click.option("--name", help="Who to greet")
@@ -1154,6 +1154,7 @@ def test_help(tmp_path, mocker, wx_app):
         level="INFO",
     )
 
+    mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
     mocker.patch("click.get_app_dir", return_value=str(tmp_path))
     # Save original
