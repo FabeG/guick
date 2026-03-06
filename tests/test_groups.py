@@ -35,6 +35,7 @@ def test_groups(tmp_path, mocker, wx_app):
         level="INFO",
     )
 
+    mocker.patch("wx.App")
     mocker.patch("wx.App.MainLoop")
     original_init = guick.Guick
     def init_gui(ctx, size=None):

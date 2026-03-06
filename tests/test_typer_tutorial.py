@@ -24,10 +24,10 @@ def test_typer_app(wx_app, tmp_path, mocker):
     )
 
     mocker.patch("wx.App")
-    mocker.patch("wx.App.MainLoop")
     # mock click.get_app and return tmp_path
     mocker.patch("click.get_app_dir", return_value=str(tmp_path))
     original_init = guick.Guick
+    wx.CallLater(100, lambda: wx.GetApp().ExitMainLoop())
 
     def init_gui(ctx, size=None):
         guick = original_init(ctx)
@@ -36,6 +36,7 @@ def test_typer_app(wx_app, tmp_path, mocker):
         return guick
 
     mocker.patch("guick.gui.Guick", init_gui)
+    wx.CallLater(100, lambda: wx.GetApp().ExitMainLoop())
     # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
     with pytest.raises(SystemExit):
         app()
@@ -56,9 +57,9 @@ def test_typer_argument_required(tmp_path, mocker, wx_app):
     )
 
     mocker.patch("wx.App")
-    mocker.patch("wx.App.MainLoop")
     mocker.patch("click.get_app_dir", return_value=str(tmp_path))
     original_init = guick.Guick
+    wx.CallLater(100, lambda: wx.GetApp().ExitMainLoop())
 
     def init_gui(ctx, size=None):
         guick = original_init(ctx)
@@ -99,7 +100,6 @@ def test_typer_argument_with_default(tmp_path, mocker, args, expected, wx_app):
     )
 
     mocker.patch("wx.App")
-    mocker.patch("wx.App.MainLoop")
     mocker.patch("click.get_app_dir", return_value=str(tmp_path))
     original_init = guick.Guick
 
@@ -111,6 +111,7 @@ def test_typer_argument_with_default(tmp_path, mocker, args, expected, wx_app):
         return guick
 
     mocker.patch("guick.gui.Guick", init_gui)
+    wx.CallLater(100, lambda: wx.GetApp().ExitMainLoop())
     # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
     with pytest.raises(SystemExit):
         app()
@@ -142,7 +143,6 @@ def test_typer_argument_with_dynamic_default(tmp_path, mocker, args, expected, w
     )
 
     mocker.patch("wx.App")
-    mocker.patch("wx.App.MainLoop")
     mocker.patch("click.get_app_dir", return_value=str(tmp_path))
     original_init = guick.Guick
 
@@ -154,6 +154,7 @@ def test_typer_argument_with_dynamic_default(tmp_path, mocker, args, expected, w
         return guick
 
     mocker.patch("guick.gui.Guick", init_gui)
+    wx.CallLater(100, lambda: wx.GetApp().ExitMainLoop())
     # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
     with pytest.raises(SystemExit):
         app()
@@ -171,7 +172,6 @@ def test_typer_argument_with_help_text(tmp_path, mocker, wx_app):
         print(f"Hello {name}")
 
     mocker.patch("wx.App")
-    mocker.patch("wx.App.MainLoop")
     mocker.patch("click.get_app_dir", return_value=str(tmp_path))
     original_init = guick.Guick
 
@@ -184,6 +184,7 @@ def test_typer_argument_with_help_text(tmp_path, mocker, wx_app):
         return guick
 
     mocker.patch("guick.gui.Guick", init_gui)
+    wx.CallLater(100, lambda: wx.GetApp().ExitMainLoop())
     # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
     with pytest.raises(SystemExit):
         app()
@@ -218,7 +219,6 @@ def test_typer_argument_with_help_panel(tmp_path, mocker, wx_app):
     )
 
     mocker.patch("wx.App")
-    mocker.patch("wx.App.MainLoop")
     mocker.patch("click.get_app_dir", return_value=str(tmp_path))
     # Save original
     original_show_modal = wx.Dialog.ShowModal
@@ -247,6 +247,7 @@ def test_typer_argument_with_help_panel(tmp_path, mocker, wx_app):
         return guick
 
     mocker.patch("guick.gui.Guick", init_gui)
+    wx.CallLater(100, lambda: wx.GetApp().ExitMainLoop())
     # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
     with pytest.raises(SystemExit):
         app()
@@ -270,7 +271,6 @@ def test_typer_argument_unset_envvar(tmp_path, mocker, wx_app):
     )
 
     mocker.patch("wx.App")
-    mocker.patch("wx.App.MainLoop")
     mocker.patch("click.get_app_dir", return_value=str(tmp_path))
     original_init = guick.Guick
 
@@ -280,6 +280,7 @@ def test_typer_argument_unset_envvar(tmp_path, mocker, wx_app):
         return guick
 
     mocker.patch("guick.gui.Guick", init_gui)
+    wx.CallLater(100, lambda: wx.GetApp().ExitMainLoop())
     # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
     with pytest.raises(SystemExit):
         app()
@@ -304,7 +305,6 @@ def test_typer_argument_with_envvar(tmp_path, mocker, wx_app):
     )
 
     mocker.patch("wx.App")
-    mocker.patch("wx.App.MainLoop")
     mocker.patch("click.get_app_dir", return_value=str(tmp_path))
     original_init = guick.Guick
 
@@ -314,6 +314,7 @@ def test_typer_argument_with_envvar(tmp_path, mocker, wx_app):
         return guick
 
     mocker.patch("guick.gui.Guick", init_gui)
+    wx.CallLater(100, lambda: wx.GetApp().ExitMainLoop())
     # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
     os.environ["AWESOME_NAME"] = "Wednesday"
     with pytest.raises(SystemExit):
@@ -339,7 +340,6 @@ def test_typer_argument_with_sec_envvar(tmp_path, mocker, wx_app):
     )
 
     mocker.patch("wx.App")
-    mocker.patch("wx.App.MainLoop")
     mocker.patch("click.get_app_dir", return_value=str(tmp_path))
     original_init = guick.Guick
 
@@ -349,6 +349,7 @@ def test_typer_argument_with_sec_envvar(tmp_path, mocker, wx_app):
         return guick
 
     mocker.patch("guick.gui.Guick", init_gui)
+    wx.CallLater(100, lambda: wx.GetApp().ExitMainLoop())
     # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
     os.environ.pop("AWESOME_NAME", None)
     os.environ["GOD_NAME"] = "Anubis"
@@ -379,7 +380,6 @@ def test_typer_option_with_help_text(tmp_path, mocker, wx_app):
             print(f"Hello {name} {lastname}")
 
     mocker.patch("wx.App")
-    mocker.patch("wx.App.MainLoop")
     mocker.patch("click.get_app_dir", return_value=str(tmp_path))
     original_init = guick.Guick
 
@@ -396,6 +396,7 @@ def test_typer_option_with_help_text(tmp_path, mocker, wx_app):
         return guick
 
     mocker.patch("guick.gui.Guick", init_gui)
+    wx.CallLater(100, lambda: wx.GetApp().ExitMainLoop())
     # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
     with pytest.raises(SystemExit):
         app()
@@ -440,7 +441,6 @@ def test_typer_option_with_help_panel(tmp_path, mocker, wx_app):
     )
 
     mocker.patch("wx.App")
-    mocker.patch("wx.App.MainLoop")
     mocker.patch("click.get_app_dir", return_value=str(tmp_path))
     # Save original
     original_show_modal = wx.Dialog.ShowModal
@@ -461,6 +461,7 @@ def test_typer_option_with_help_panel(tmp_path, mocker, wx_app):
         return guick
 
     mocker.patch("guick.gui.Guick", init_gui)
+    wx.CallLater(100, lambda: wx.GetApp().ExitMainLoop())
     # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
     with pytest.raises(SystemExit):
         app()
@@ -480,7 +481,6 @@ def test_typer_option_required(tmp_path, mocker, wx_app):
     )
 
     mocker.patch("wx.App")
-    mocker.patch("wx.App.MainLoop")
     mocker.patch("click.get_app_dir", return_value=str(tmp_path))
     original_init = guick.Guick
 
@@ -493,6 +493,7 @@ def test_typer_option_required(tmp_path, mocker, wx_app):
         return guick
 
     mocker.patch("guick.gui.Guick", init_gui)
+    wx.CallLater(100, lambda: wx.GetApp().ExitMainLoop())
     # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
     with pytest.raises(SystemExit):
         app()
@@ -517,7 +518,6 @@ def test_typer_password(tmp_path, mocker, wx_app):
     )
 
     mocker.patch("wx.App")
-    mocker.patch("wx.App.MainLoop")
     mocker.patch("click.get_app_dir", return_value=str(tmp_path))
     original_init = guick.Guick
 
@@ -531,6 +531,7 @@ def test_typer_password(tmp_path, mocker, wx_app):
         return guick
 
     mocker.patch("guick.gui.Guick", init_gui)
+    wx.CallLater(100, lambda: wx.GetApp().ExitMainLoop())
     # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
     with pytest.raises(SystemExit):
         app()
@@ -555,7 +556,6 @@ def test_typer_argument_validate_nok(tmp_path, mocker, wx_app):
     )
 
     mocker.patch("wx.App")
-    mocker.patch("wx.App.MainLoop")
     mocker.patch("click.get_app_dir", return_value=str(tmp_path))
     original_init = guick.Guick
 
@@ -569,6 +569,7 @@ def test_typer_argument_validate_nok(tmp_path, mocker, wx_app):
         return guick
 
     mocker.patch("guick.gui.Guick", init_gui)
+    wx.CallLater(100, lambda: wx.GetApp().ExitMainLoop())
     # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
     with pytest.raises(SystemExit):
         app()
@@ -596,7 +597,6 @@ def test_typer_argument_validate_ok(tmp_path, mocker, wx_app):
     )
 
     mocker.patch("wx.App")
-    mocker.patch("wx.App.MainLoop")
     mocker.patch("click.get_app_dir", return_value=str(tmp_path))
     original_init = guick.Guick
 
@@ -607,6 +607,7 @@ def test_typer_argument_validate_ok(tmp_path, mocker, wx_app):
         return guick
 
     mocker.patch("guick.gui.Guick", init_gui)
+    wx.CallLater(100, lambda: wx.GetApp().ExitMainLoop())
     # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
     with pytest.raises(SystemExit):
         app()
@@ -641,7 +642,6 @@ def test_typer_version(tmp_path, mocker, wx_app):
     )
 
     mocker.patch("wx.App")
-    mocker.patch("wx.App.MainLoop")
     mocker.patch("click.get_app_dir", return_value=str(tmp_path))
     # Save original
     original_show_modal = wx.Dialog.ShowModal
@@ -665,6 +665,7 @@ def test_typer_version(tmp_path, mocker, wx_app):
         return guick
 
     mocker.patch("guick.gui.Guick", init_gui)
+    wx.CallLater(100, lambda: wx.GetApp().ExitMainLoop())
     # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
     with pytest.raises(SystemExit):
         app()
@@ -696,7 +697,6 @@ def test_typer_argument_with_commands(tmp_path, mocker, wx_app):
     )
 
     mocker.patch("wx.App")
-    mocker.patch("wx.App.MainLoop")
     mocker.patch("click.get_app_dir", return_value=str(tmp_path))
     original_init = guick.Guick
 
@@ -715,6 +715,7 @@ def test_typer_argument_with_commands(tmp_path, mocker, wx_app):
         return guick
 
     mocker.patch("guick.gui.Guick", init_gui)
+    wx.CallLater(100, lambda: wx.GetApp().ExitMainLoop())
     # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
     with pytest.raises(SystemExit):
         app()
@@ -739,7 +740,6 @@ def test_typer_types(tmp_path, mocker, wx_app):
     )
 
     mocker.patch("wx.App")
-    mocker.patch("wx.App.MainLoop")
     # mock click.get_app and return tmp_path
     mocker.patch("click.get_app_dir", return_value=str(tmp_path))
     original_init = guick.Guick
@@ -759,6 +759,7 @@ def test_typer_types(tmp_path, mocker, wx_app):
         return guick
 
     mocker.patch("guick.gui.Guick", init_gui)
+    wx.CallLater(100, lambda: wx.GetApp().ExitMainLoop())
     # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
     with pytest.raises(SystemExit):
         app()
@@ -789,7 +790,6 @@ def test_typer_number(tmp_path, mocker, wx_app):
     )
 
     mocker.patch("wx.App")
-    mocker.patch("wx.App.MainLoop")
     # mock click.get_app and return tmp_path
     mocker.patch("click.get_app_dir", return_value=str(tmp_path))
     original_init = guick.Guick
@@ -823,6 +823,7 @@ def test_typer_number(tmp_path, mocker, wx_app):
         return guick
 
     mocker.patch("guick.gui.Guick", init_gui)
+    wx.CallLater(100, lambda: wx.GetApp().ExitMainLoop())
     # mocker.patch("guick.Guick.on_close_buttton", lambda: pass)
     with pytest.raises(SystemExit):
         app()
